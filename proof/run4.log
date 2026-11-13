@@ -1,0 +1,179 @@
+# Proof run 4 — Kernel Collector Integration (Milestone 3b)
+
+- **Date:** 2026-11-13
+- **Machine:** this Linux VM (Temurin 21.0.13); target = bundled LoadApp
+  (G1, -Xmx256m) — the same proof discipline as runs 1–3.
+- **Code:** appraan commits b72c2ff, ba214f3, 2bd584c, e70ca3b, b23d16a;
+  appraan-windows commits 7c48a2b, 7b721c3, c7a6e7b, fa17f9f +
+  transport-modes follow-up.
+- **Artefacts:** everything in `proof/run4/` (fixture, captured payloads,
+  pages, console logs, `security/` for Phase D).
+
+## The fixture — provenance (read this first)
+
+`kernel-fixture.json` is a **composite built from real, verified Windows
+runs** of the appraan-windows tools — not invented numbers:
+
+- ops categories, kinds, **latency histograms** and diagnostics:
+  winops vs pid **18772** (evidence file
+  `step3-winops-disk-verified-2026-11-13.md` in appraan-windows: File
+  4040 ops avg 139.0 µs max 17270.1 µs; Disk 1291 avg 251.1 µs;
+  Network 919; ProcessThread 4813; unmatched completions 22).
+- off-CPU summary, wait reasons and top threads: winoffcpu vs pid
+  **53152** (user's verified 40 s run, 2026-11-13: off-CPU 99.6%,
+  4,113 episodes, WrQueue 64.1% / UserRequest 35.3%).
+- TCP totals: wintcplife reverification (262 closed connections,
+  TX = RX = 8,384 B exactly = 262 × 32 B).
+- TCP `recent` entries are *representative samples* in the verified
+  shape (winload loopback, 0.03 KB each way, sub-ms lifetimes) — the only
+  non-verbatim part, labelled as such.
+- Kinds/hist sums reconcile with counts (asserted when the fixture was
+  generated), reason episode counts sum to the off-CPU total.
+
+The live appraanagent→Appraan loop (real ETW) can only run on Windows;
+it awaits the user's machine (three-window test in appraan-windows'
+RUNBOOK). Everything below exercises Appraan's side of the contract
+end-to-end with that fixture.
+
+## Phase A — push path (bounded 50 s run, `run-proof.sh`)
+
+1. **No-data state first.** Before any POST, `GET /api/kernel`
+   (`kernel-before.json`): `available:false`, `source:"none"`, hint
+   state `"none"` with the **Linux** message (no agent instruction —
+   this VM is Linux) and `procIo` populated from the real target
+   (LoadApp: syscr 96, readBytes 6,488,064 at that instant — its own
+   startup I/O, cumulative since process start, `basis` labelled).
+   The dashboard HTML (`dashboard.html`) contains the Kernel panel,
+   the LIVE indicator and the 1 s poll.
+2. **Plain POST** of the fixture → `200 {"ok":true,"pid":18772}`.
+   **Malformed POST** → **HTTP 400**, and the snapshot captured
+   *afterwards* still matches the fixture (previous snapshot kept).
+   `GET /api/kernel` (`kernel-after-plain.json`): the `kernel` object
+   is **exactly equal** to the fixture — every category, kind,
+   histogram bucket, TCP figure and off-CPU value round-tripped
+   through parse → model → re-serialise. Console `Kernel:` blocks
+   print the same numbers (`File=4040 avg 139.0 us max 17270.1 us …
+   tcp: closed=262 tx=8.2 KiB …`), flipping to the `(stale)` prefix at
+   age 16 s, demonstrating the 15 s staleness rule live.
+3. **Gzip POST** of the same fixture → 200, `/api/kernel` again exactly
+   equal. **Payload sizes (numbers): plain 3,438 B → gzipped 1,205 B.**
+   (Wire-format note, per the final Amendment-10 rule: the DEFAULT
+   agent push is the plain body of step 2 — literal JSON, no
+   `Content-Encoding`. The gzipped body here is the agent's opt-in
+   `--gzip` mode; Appraan's ingest accepts both, plus envelopes.)
+4. The JFR pipeline ran unaffected alongside: console young GCs climbed
+   17 → 116 over the run, allocation/CPU lines normal; the final
+   summary line printed at bounded exit (exit 0).
+
+## Phase B — `--kernel-file` fallback (25 s run)
+
+Appraan with `--kernel-file proof/run4/kernel-fixture.json`:
+`/api/kernel` reports `source:"file"` and the identical document. The
+console block shows `age=176s (stale)` — honest: the age is the file's
+mtime (the fixture was authored minutes earlier), and staleness is
+exactly what a non-updating file should produce. Exit 0.
+
+## Phase C — `--seconds 0` UI mode + Ctrl+C
+
+- Server still serving at ~15 s and beyond; two `/api/summary`
+  captures show `elapsedSeconds` advancing (5.2 → 15.5 in the scripted
+  run; 41.1 → 46.2 in the controlled rerun) with allocation totals
+  advancing likewise.
+- **SIGINT, done properly** (`appraan-forever2.log`): with the JVM
+  started the way a user starts it in a terminal, SIGINT produced the
+  graceful shutdown — `Appraan final summary (interrupted): PID 6953
+  observed 46s — young GCs 107, old GCs 0, allocated 7.0 GiB, CPU
+  samples 4644.` followed by `JFR recording 'appraan' stopped in
+  target; detached.` and process exit. A SIGTERM against the first
+  (scripted) instance produced the identical graceful path.
+- **Gotcha found by this proof** (recorded for honesty): a JVM launched
+  with `&` from a *non-interactive* shell inherits SIGINT as *ignored*,
+  and HotSpot correctly leaves it ignored — the first scripted attempt
+  therefore "ignored Ctrl+C" and had to be stopped by SIGTERM (which
+  is not masked). Interactive terminals (the real Ctrl+C case) are
+  unaffected; the controlled rerun used a launcher that resets SIGINT
+  to the default disposition, exactly reproducing a terminal start.
+  Artefacts: `appraan-forever.log` (SIGTERM path, 165 s) and
+  `appraan-forever2.log` (SIGINT path), `run-phase-c.py`.
+
+## Phase D — feed security + contract foresight (`security/`)
+
+- **D1 — shared-key mode, real cross-stack interop.** Key generated by
+  the agent itself (`appraanagent --gen-key`, exit 0 on this VM). The
+  envelope POSTed was produced by the **production .NET
+  `KernelPush.BuildBody` code** extracted into a harness. Against
+  Appraan run with `--kernel-key-file`:
+  plain POST → **400**; gzipped-plain POST → **400**; envelope with a
+  JSON content type → **400**; envelope as `application/octet-stream`
+  → **200**, and `/api/kernel` equals the fixture exactly — **Java
+  decrypts the .NET envelope: interop proven by execution, not just by
+  construction.** (AES-GCM known-answer vectors also in
+  `KernelCryptoTest`.) NOTE: D1 ran against the first envelope layout;
+  Amendment 10 then added the authenticated flags byte
+  (`[0x01][flags][nonce][ct+tag]`, flags bit0 = gzipped-inside, header
+  bound as GCM AAD). The final layout was re-verified end-to-end in
+  Phase E below — that is the layout that shipped.
+- **D2 — host/labels + flame.** A POST of the fixture + `host` +
+  `labels` round-trips exactly; the `/kernel` page shows
+  `host: proof-node-1 · pod=demo · env=test`. The `/flame` page
+  (recaptured after real rounds, `security/d2-flame.html`) carries the
+  zoom machinery: every frame is a `g.frame` with `data-x`/`data-w`
+  fractions (the `LoadApp.isPrime` frame: x=0.000000, w=0.988024),
+  `data-depth`, the Reset zoom control and the `applyZoom` script.
+  Interactive zoom itself is browser-verified by the user — this VM
+  has no browser session in the proof path.
+- **D3 — TLS mode.** keytool PKCS12 keystore (CN=localhost, SAN
+  dns:localhost + ip:127.0.0.1), password via
+  `--https-keystore-password env` (`APPRAAN_HTTPS_PASSWORD`):
+  HTTPS GET `/api/kernel` → **200**; HTTPS POST of the fixture → ok
+  and `/api/kernel` equals it over TLS; dashboard over HTTPS → 200;
+  untrusted client → curl exit **60**; plain HTTP to the port → curl
+  exit **52** (refused). One defect found and fixed in docs + rerun
+  (D3b): `keytool -exportcert` defaults to DER, which `curl --cacert`
+  cannot use — the export must be PEM (`-rfc`); README corrected.
+  The agent's `--tls-cert` accepts DER *or* PEM, so agent usage is
+  unaffected.
+
+## Phase E — Amendment-10 default mode + final envelope (`security/`)
+
+- **E1 — DEFAULT mode is the primary path.** Appraan with no security
+  flags prints `Kernel feed security: plain JSON over HTTP (no
+  encryption) — loopback trust boundary…`. The body POSTed was built
+  by the production agent code in default mode and verified
+  **byte-identical to the raw JSON** (3,438 B, `Content-Type:
+  application/json`, no `Content-Encoding`) → 200, `/api/kernel` ==
+  fixture. The agent's three other bodies from the same production
+  code: gzip 1,185 B; envelope/plain-inside 3,468 B (flags byte 0);
+  envelope/gzip-inside 1,215 B (flags byte 1) — envelope overhead is
+  now 30 B (2 header + 12 nonce + 16 tag).
+- **E2 — key mode, final layout.** Appraan `--kernel-key-file` prints
+  the fail-closed mode line. Plain POST → **400**; gzip POST →
+  **400**; envelope with plain JSON inside → **200** + fixture match;
+  envelope with gzipped JSON inside → **200** + fixture match. Both
+  envelope variants of the final layout are thus proven against the
+  production .NET producer and the Java consumer.
+
+## Windows-specific text — verification note
+
+The Windows hint text ("please run appraanagent in an elevated
+(Administrator) shell", the copy-paste push command with the observed
+PID and bound port, the stale-restart banner) cannot be *rendered* on
+this Linux VM — Appraan composes hints from the host OS. It is verified
+by `KernelFeedTest` (26 checks): windows+none → the appraanagent
+message + exact command; windows+waiting-file → path message + `--out`
+command; windows+stale → restart message; linux → no agent text in any
+state. The Linux states were additionally rendered live above.
+
+## Verdict
+
+**PASS** for everything this VM can prove: push (plain + gzip +
+encrypted), file fallback, ingest rejection paths, kernel panel/page
+data fidelity against real verified Windows numbers, staleness,
+run-forever UI mode with graceful SIGINT/SIGTERM shutdown, both
+encryption modes, host/labels foresight, flame-zoom markup. Remaining
+external verification: the live ETW loop + interactive flame zoom on
+the user's Windows 11 machine (RUNBOOK three-window test).
+
+Tests at this milestone: **169 plain-Java checks** (72 pre-milestone
+baseline + 97 added across KernelDataTest, KernelFeedTest,
+KernelIngestTest, KernelCryptoTest).

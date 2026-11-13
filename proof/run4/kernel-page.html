@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Appraan — Kernel</title>
+<style>
+  body { background:#0d1117; color:#e8ecf1; font-family:system-ui,sans-serif; margin:2rem; }
+  h2 { font-size:1rem; color:#9fb4c8; text-transform:uppercase; letter-spacing:.06em; margin-top:1.6rem; }
+  table { border-collapse:collapse; font-size:.9rem; margin-top:.4rem; }
+  td, th { padding:.2rem .5rem; text-align:left; border-bottom:1px solid #232b36; }
+  td.n, th.n { text-align:right; font-variant-numeric:tabular-nums; }
+  a { color:#6cb6ff; }
+  .hint { border:1px solid #d29922; background:#2a2113; border-radius:6px;
+    padding:.6rem .8rem; margin:1rem 0; max-width:60rem; }
+  .hint code { display:block; margin-top:.4rem; color:#ffd479; white-space:pre-wrap;
+    word-break:break-all; }
+  .dim { opacity:.55; }
+  .small { font-size:.82rem; color:#8b98a5; }
+</style>
+</head>
+<body>
+<p><a href="/">← dashboard</a> · <a href="/flame">CPU flame graph →</a></p>
+<h1>Kernel — PID 6221</h1>
+<p>Source: push · snapshot age 0s · agent window 40.0s</p>
+<h2>Off-CPU</h2>
+<p>99.6% off-CPU · on 584 ms · off 138427 ms · 4113 episodes · max episode 5672 ms</p>
+<table><tr><th>Wait reason</th><th class="n">Episodes</th><th class="n">Total</th><th class="n">Share</th></tr>
+<tr><td>WrQueue</td><td class="n">2234</td><td class="n">88776 ms</td><td class="n">64.1%</td></tr>
+<tr><td>UserRequest</td><td class="n">298</td><td class="n">48919 ms</td><td class="n">35.3%</td></tr>
+<tr><td>ExecutionDelay</td><td class="n">6</td><td class="n">425 ms</td><td class="n">0.3%</td></tr>
+<tr><td>Executive</td><td class="n">243</td><td class="n">291 ms</td><td class="n">0.2%</td></tr>
+<tr><td>Preempted</td><td class="n">1064</td><td class="n">10 ms</td><td class="n">0.0%</td></tr>
+<tr><td>Standby</td><td class="n">201</td><td class="n">5 ms</td><td class="n">0.0%</td></tr>
+<tr><td>WrResource</td><td class="n">5</td><td class="n">1 ms</td><td class="n">0.0%</td></tr>
+<tr><td>Unknown</td><td class="n">20</td><td class="n">0 ms</td><td class="n">0.0%</td></tr>
+<tr><td>Running</td><td class="n">41</td><td class="n">0 ms</td><td class="n">0.0%</td></tr>
+<tr><td>WrLpcReply</td><td class="n">1</td><td class="n">0 ms</td><td class="n">0.0%</td></tr>
+</table>
+<table><tr><th>Thread</th><th class="n">Episodes</th><th class="n">Off-CPU</th><th class="n">Max episode</th><th class="n">On-CPU</th><th class="n">Off %</th><th></th></tr>
+<tr><td>8488</td><td class="n">243</td><td class="n">12909 ms</td><td class="n">120 ms</td><td class="n">6 ms</td><td class="n">100.0</td><td>partial</td></tr>
+<tr><td>51712</td><td class="n">298</td><td class="n">12908 ms</td><td class="n">438 ms</td><td class="n">5 ms</td><td class="n">100.0</td><td>partial</td></tr>
+<tr><td>13668</td><td class="n">326</td><td class="n">12907 ms</td><td class="n">466 ms</td><td class="n">5 ms</td><td class="n">100.0</td><td>partial</td></tr>
+<tr><td>16336</td><td class="n">107</td><td class="n">12863 ms</td><td class="n">3336 ms</td><td class="n">136 ms</td><td class="n">99.0</td><td>partial</td></tr>
+<tr><td>21704</td><td class="n">274</td><td class="n">12863 ms</td><td class="n">5672 ms</td><td class="n">50 ms</td><td class="n">99.6</td><td>partial</td></tr>
+<tr><td>24640</td><td class="n">555</td><td class="n">12826 ms</td><td class="n">2698 ms</td><td class="n">87 ms</td><td class="n">99.3</td><td>partial</td></tr>
+<tr><td>47360</td><td class="n">681</td><td class="n">12810 ms</td><td class="n">439 ms</td><td class="n">105 ms</td><td class="n">99.2</td><td>partial</td></tr>
+<tr><td>20652</td><td class="n">736</td><td class="n">12798 ms</td><td class="n">1030 ms</td><td class="n">117 ms</td><td class="n">99.1</td><td>partial</td></tr>
+<tr><td>42512</td><td class="n">177</td><td class="n">12569 ms</td><td class="n">515 ms</td><td class="n">3 ms</td><td class="n">100.0</td><td>partial</td></tr>
+<tr><td>31728</td><td class="n">706</td><td class="n">11962 ms</td><td class="n">551 ms</td><td class="n">68 ms</td><td class="n">99.4</td><td>partial</td></tr>
+</table>
+<h2>Kernel operations by category</h2>
+<table><tr><th>Category</th><th class="n">Count</th><th class="n">With latency</th><th class="n">Avg</th><th class="n">Max</th><th>Kinds</th></tr>
+<tr><td>File</td><td class="n">4040</td><td class="n">4040</td><td class="n">139.0 µs</td><td class="n">17270.1 µs</td><td class="small">QueryInfo 1663 · Write 1172 · Close 357 · Cleanup 251 · FSControl 235 · Create 234 · Read 125 · Delete 2 · Flush 1</td></tr>
+<tr><td></td><td class="small" colspan="5">hist: &lt;10us 2706 · &lt;50us 543 · &lt;100us 141 · &lt;500us 312 · &lt;1ms 187 · &lt;5ms 145 · &lt;10ms 5 · &lt;50ms 1</td></tr>
+<tr><td>Disk</td><td class="n">1291</td><td class="n">1291</td><td class="n">251.1 µs</td><td class="n">6088.5 µs</td><td class="small">Write 1116 · Read 175</td></tr>
+<tr><td></td><td class="small" colspan="5">hist: &lt;50us 356 · &lt;100us 40 · &lt;500us 682 · &lt;1ms 172 · &lt;5ms 38 · &lt;10ms 3</td></tr>
+<tr><td>Network</td><td class="n">919</td><td class="n">0</td><td class="n">—</td><td class="n">—</td><td class="small">TcpRecv 235 · TcpDisconnect 228 · TcpSend 228 · TcpAccept 114 · TcpConnect 114</td></tr>
+<tr><td>ProcessThread</td><td class="n">4813</td><td class="n">0</td><td class="n">—</td><td class="n">—</td><td class="small">ContextSwitch 4794 · ThreadStop 16 · ThreadStart 2 · ProcessStop 1</td></tr>
+<tr><td>Registry</td><td class="n">0</td><td class="n">0</td><td class="n">—</td><td class="n">—</td><td class="small"></td></tr>
+</table>
+<p class="small">Diagnostics: pending file ops 0 · unmatched completions 22 · duplicate starts 0 · evicted pending 0</p>
+<h2>TCP connections</h2>
+<p>262 closed · TX 8.2 KiB · RX 8.2 KiB · 0 still open · 0 unmatched disconnects</p>
+<table><tr><th>Process</th><th>Local → remote</th><th class="n">TX/RX</th><th class="n">Lifetime</th></tr>
+<tr><td>winload</td><td>127.0.0.1:55001 → 127.0.0.1:61339</td><td class="n">0.03 / 0.03 KB</td><td class="n">0.42 ms</td></tr>
+<tr><td>winload</td><td>127.0.0.1:55002 → 127.0.0.1:61339</td><td class="n">0.03 / 0.03 KB</td><td class="n">0.31 ms</td></tr>
+<tr><td>winload</td><td>127.0.0.1:55003 → 127.0.0.1:61339</td><td class="n">0.03 / 0.03 KB</td><td class="n">0.55 ms</td></tr>
+</table>
+<h2>Process I/O — Linux /proc (parity subset)</h2>
+<p>Read 6.2 MiB · write 4.0 KiB · read/write syscalls 96 / 19 · cancelled writes 0 B</p>
+<p class="small">Cumulative since process start, from /proc/&lt;pid&gt;/io — semantics differ from the ETW snapshot windows above: these counters never reset.</p>
+<script>setTimeout(() => location.reload(), 5000);</script>
+</body>
+</html>

@@ -1,0 +1,1 @@
+Kernel feed security: AES-256-GCM shared key from /tmp/testkey.b64 ? fail-closed, envelopes only.

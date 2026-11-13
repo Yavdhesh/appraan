@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Appraan — Kernel</title>
+<style>
+  body { background:#0d1117; color:#e8ecf1; font-family:system-ui,sans-serif; margin:2rem; }
+  h2 { font-size:1rem; color:#9fb4c8; text-transform:uppercase; letter-spacing:.06em; margin-top:1.6rem; }
+  table { border-collapse:collapse; font-size:.9rem; margin-top:.4rem; }
+  td, th { padding:.2rem .5rem; text-align:left; border-bottom:1px solid #232b36; }
+  td.n, th.n { text-align:right; font-variant-numeric:tabular-nums; }
+  a { color:#6cb6ff; }
+  .hint { border:1px solid #d29922; background:#2a2113; border-radius:6px;
+    padding:.6rem .8rem; margin:1rem 0; max-width:60rem; }
+  .hint code { display:block; margin-top:.4rem; color:#ffd479; white-space:pre-wrap;
+    word-break:break-all; }
+  .dim { opacity:.55; }
+  .small { font-size:.82rem; color:#8b98a5; }
+</style>
+</head>
+<body>
+<p><a href="/">← dashboard</a> · <a href="/flame">CPU flame graph →</a></p>
+<h1>Kernel — PID 6221</h1>
+<div class="hint"><div>No kernel collector feed on this platform: kernel metrics are produced by the Windows/ETW sidecar; on Linux this panel shows the target's /proc process I/O counters instead, when available.</div></div>
+<h2>Process I/O — Linux /proc (parity subset)</h2>
+<p>Read 6.2 MiB · write 4.0 KiB · read/write syscalls 96 / 19 · cancelled writes 0 B</p>
+<p class="small">Cumulative since process start, from /proc/&lt;pid&gt;/io — semantics differ from the ETW snapshot windows above: these counters never reset.</p>
+<script>setTimeout(() => location.reload(), 5000);</script>
+</body>
+</html>

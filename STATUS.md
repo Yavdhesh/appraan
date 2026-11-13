@@ -1,5 +1,77 @@
 # Appraan — Status
 
+Milestone 3b — KERNEL COLLECTOR INTEGRATION: COMPLETE (2026-11-13).
+The appraan-windows utilities become Appraan's Windows collector layer
+via the **appraanagent** sidecar (appraan-windows commits 7c48a2b,
+7b721c3, c7a6e7b, fa17f9f + follow-ups: one ETW session hosting
+OpsTracker + TcpConnectionTracker + OffCpuTracker; JSON snapshots by
+push — plain JSON by default, opt-in gzip / AES-GCM envelope / TLS —
+with the plain-JSON --out file as fallback/recorder).
+- [x] `dev.appraan.kernel`: OS-neutral `KernelData` model (ops categories
+      incl. the winops latency `hist`, diagnostics, TCP summary + recent,
+      off-CPU summary + reasons + threads), a strict hand-rolled
+      `JsonParser` (ui.Json is writer-only), and `KernelFeed` — freshest
+      of push/file, age + 15 s staleness, and the platform-aware hint
+      state machine (Windows: elevated appraanagent command with the
+      observed PID + this instance's bound port; Linux: never).
+- [x] CLI: `--kernel-file <path>` (fallback feed); `--seconds 0` = run
+      until Ctrl+C (UI mode) with a shutdown hook that stops the JFR
+      recording + HTTP server cleanly and prints a final summary line.
+- [x] Console: compact `Kernel:` block per round (categories + avg/max
+      latency, TCP closed/bytes, off-CPU % + top reason) from the
+      freshest source; on Windows with no data after ~15 s the guidance
+      prints ONCE; on Linux a `/proc` process-IO line instead.
+- [x] UI: `POST /api/kernel/ingest` (loopback-only; gzip or plain;
+      malformed → 400, previous snapshot kept; 200 `{"ok":true}`),
+      `GET /api/kernel` (snapshot + source/age/stale + hint + procIo),
+      dashboard Kernel panel + dedicated `/kernel` page (categories,
+      histograms, TCP, off-CPU reasons/threads, hint/empty/stale states),
+      dashboard polls every 1 s with a LIVE/STALE indicator.
+- [x] Linux parity subset: `/proc/<pid>/io` (syscr, syscw, read_bytes,
+      write_bytes, cancelled_write_bytes) via the OS-collector SPI into
+      the snapshot model, labelled everywhere as cumulative-since-start
+      /proc counters (semantics differ from ETW windows — see DESIGN.md).
+- [x] Feed transport & security (user decisions, in order): push is
+      JSON; **default = literal plain JSON over HTTP, no encryption**;
+      gzip is the agent's opt-in `--gzip` (ingest always accepts it);
+      encryption in BOTH modes behind flags — shared-key AES-256-GCM
+      envelope (agent `--key-file` / `--gen-key`; Appraan
+      `--kernel-key-file`, fail-closed; envelope `[0x01][flags][nonce]
+      [ct+tag]`, header as GCM AAD, flags bit0 = gzipped-inside) and
+      full-UI TLS (Appraan `--https-keystore` +
+      `--https-keystore-password <pw|env>`; agent `--tls-cert`
+      pinning). Contract foresight: optional `host`/`labels` snapshot
+      fields (agent fills host automatically, `--label k=v`), shown in
+      the Kernel views. Flame graph: click-to-zoom + Reset zoom.
+      Complete configuration reference: README, "Kernel feed transport
+      & security configuration" (flag table + Option A / Option B
+      walkthroughs with file-placement tables + behaviour matrix).
+- [x] Tests: 169 plain-Java checks passing (72 baseline + 97 new:
+      KernelDataTest 45, KernelFeedTest 26, KernelIngestTest 7,
+      KernelCryptoTest 19 incl. known-answer vectors for both envelope
+      variants).
+- [x] PROOF RUN 4 (`proof/run4.log` + `proof/run4/`): PASS for
+      everything this VM can prove — no-data/hint state, plain POST
+      (the default wire format), gzip POST, malformed → 400 with the
+      previous snapshot kept, `--kernel-file` fallback, staleness
+      flipping live at 15 s, `--seconds 0` + graceful SIGINT shutdown
+      (incl. the background-shell SIGINT-ignored gotcha, documented in
+      the log), key mode fail-closed with BOTH envelope variants built
+      by the production .NET code (cross-stack AES-GCM interop proven
+      by execution), TLS mode end-to-end (PEM-export gotcha found +
+      README fixed), host/labels round-trip, flame-zoom markup.
+      Fixture = composite of REAL verified Windows runs (winops pid
+      18772, winoffcpu pid 53152, wintcplife totals). Remaining
+      external verification: the live ETW loop + interactive flame
+      zoom on the user's Windows 11 machine (RUNBOOK three-window
+      test in appraan-windows).
+- NEXT MILESTONE (not started): central collector mode — Appraan
+  without a local target, ingest keyed by (host, pid, labels), agents
+  pushing from docker/k8s pods, one page per PID merging JVM + kernel
+  data + flame graphs. See DESIGN.md, "Future: central collector
+  mode". The `host`/`labels` contract fields above are this
+  milestone's preparation for it.
+
 Milestone 3a: COMPLETE — G1 promotion estimate, region census with humongous
 reporting, old-GC proof via a promotion-heavy demo mode, and graceful
 target-exit handling. Milestone 2 (embedded web UI) remains as below.

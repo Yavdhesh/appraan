@@ -71,6 +71,100 @@ Why Attach + JFR instead of JMX/RMI or agents:
   platform parity for free.
 - `jdk.jfr.consumer` parses recordings with JDK classes only: zero dependencies.
 
+## Milestone 3b — kernel collector integration (appraanagent)
+
+The Windows kernel layer is not re-implemented in Java: the verified
+appraan-windows trackers (ops by category + latency, TCP connection life,
+off-CPU with wait reasons) run in a separate elevated process,
+**appraanagent**, and hand Appraan JSON snapshots. Three constraints
+shape the design:
+
+- **One ETW session.** Windows allows effectively one NT Kernel Logger
+  session, and each standalone tool stops any stale session on start —
+  so the integration unit is a *single* sidecar process hosting all
+  trackers in one `KernelSession`, not three tools side by side.
+- **Elevation decoupling.** ETW needs an elevated process; the Attach API
+  wants the target's own user and *fails* across that boundary. The
+  agent runs elevated on its own; Appraan never elevates.
+- **Zero dependencies, both sides.** The snapshot document is hand-built
+  JSON on the .NET side and parsed by a small hand-rolled parser here
+  (`dev.appraan.kernel`); the model (`KernelData`) is OS-neutral — the
+  parity seam — and only the producer is Windows-specific.
+
+**Handoff.** Primary: the agent POSTs each snapshot to
+`POST /api/kernel/ingest` on the UI server (loopback-only, like the
+whole UI). Snapshots are cumulative, so a missed push self-heals on the
+next success; the agent warns once per failure streak and never stops.
+Fallback/recorder: the agent's `--out` file (atomic temp+rename writes)
+polled by Appraan via `--kernel-file`. `KernelFeed` keeps the freshest
+snapshot across both sources (push wins — it is fresher by
+construction), tracks its age, and labels data **stale** after 15 s.
+The same feed composes the Kernel panel's guidance states server-side
+(no data / waiting-for-file / stale / live), including — on Windows —
+the exact elevated `appraanagent` command for the observed PID and this
+instance's bound port; on Linux the panel never shows that instruction
+and displays the /proc parity data instead.
+
+**Trust note.** The ingest endpoint is loopback-only, the same trust
+boundary as the UI itself: by default any local process could post a
+snapshot. That is acceptable for a local developer tool, and it is
+stated plainly here rather than implied. For anything beyond that, see
+the feed security modes below.
+
+**Feed format — decision record.** JSON over HTTP/1.1 on loopback
+(`POST /api/kernel/ingest`). Considered: binary encoding and gRPC.
+Deferred deliberately: snapshots are a few KB every ~2 s on loopback,
+so transit cost is unmeasurable at this scale; gRPC would require
+protobuf + an HTTP/2 stack (the JDK's built-in HttpServer is HTTP/1.1
+only) in both the agent and the jar, breaking the zero-dependency rule
+for no measured gain. The endpoint is content-type based, leaving room
+for a binary format later; the documented first step if payloads grow
+is gzip (built into both the JDK and .NET stacks). Revisit when
+snapshot size × rate makes transit measurable.
+
+*Updates (user decisions, in order):* (1) gzip was adopted — then
+refined by the plainer rule that now governs: **the default feed is
+literal plain JSON over HTTP** (no compression, no encryption, no
+HTTPS), and everything else is an opt-in flag. Gzip survives as the
+agent's `--gzip` flag (maximum compression when present; Appraan's
+ingest always accepts gzipped bodies for back-compat). (2) Encryption
+is available in **both** modes behind flags: a shared-key AES-256-GCM
+envelope (agent `--key-file`, Appraan `--kernel-key-file`, fail-closed
+when configured; envelope header carries an authenticated flags byte
+recording whether the sealed payload was gzipped) and full-UI TLS
+(Appraan `--https-keystore`, agent `--tls-cert` pinning). The complete
+configuration reference — flag table, grouped Option A (HTTPS) and
+Option B (shared-key) walkthroughs with file-placement tables, and the
+behaviour matrix — lives in the README, "Kernel feed transport &
+security configuration"; it is the single source for these flags.
+
+**Linux parity subset (honest).** Until the eBPF collector lands, Linux
+fills what it truthfully can for the target PID from `/proc/<pid>/io`
+(syscr, syscw, read_bytes, write_bytes, cancelled_write_bytes), exposed
+through the same `OsCollector` SPI into the snapshot model. The
+semantics differ from the ETW windows — /proc counters are cumulative
+since process start — and every surface (console, panel, /kernel page,
+API `basis` field) labels them as such. Per-category ops/latency and
+off-CPU wait reasons remain Windows-only until eBPF; the model already
+has their shape, so the Linux collector will slot in behind it.
+
+**Pod/collector foresight.** The snapshot contract already carries
+optional top-level `host` (the agent fills it with the machine name)
+and `labels` (agent `--label k=v`) fields, parsed and displayed today,
+so the future central-collector mode needs no contract break.
+
+## Future: central collector mode (NEXT milestone — not built)
+
+Appraan running *without* a local target: a central collector whose
+ingest is keyed by (host, pid, labels). Agents push from docker/k8s
+pods — an Appraan agent mode for JVM + Linux kernel data,
+appraanagent for Windows kernel data — and the UI lists observed PIDs
+with **one page per PID** merging that process's JVM data, kernel data
+and flame graphs. The single-machine loop (this milestone) is the
+special case where the collector happens to also hold the Attach
+session. Explicitly out of scope here; the `host`/`labels` contract
+fields above are this milestone's only preparation for it.
+
 ## Metric → source map
 
 | Metric (meaning) | JVM source (both OSes) | Kernel source — Linux | Kernel source — Windows |

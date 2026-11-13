@@ -1,0 +1,155 @@
+=== Appraan: observing PID 6953 ===
+Target JVM
+  pid:            6953
+  version:        OpenJDK 64-Bit Server VM version 21.0.13+9-LTS
+  GC collector:   G1
+  flag UseG1GC = true
+  flag InitialHeapSize = 124 MiB (130023424)
+  flag MaxHeapSize = 256 MiB (268435456)
+  flag MinHeapSize = 8 MiB (8388608)
+  flag MaxNewSize = 153 MiB (160432128)
+  flag G1HeapRegionSize = 1 MiB (1048576)
+  flag UseCompressedOops = true
+  command line:
+    jvm_args: -Xmx256m -XX:+UseG1GC
+    java_command: dev.appraan.demo.LoadApp
+    java_class_path (initial): dist/appraan.jar
+    Launcher Type: SUN_STANDARD
+  heap info:
+    garbage-first heap   total 129024K, used 42733K [0x00000000f0000000, 0x0000000100000000)
+    region size 1024K, 39 young (39936K), 4 survivors (4096K)
+    Metaspace       used 4380K, committed 4480K, reserved 1114112K
+    class space    used 407K, committed 448K, reserved 1048576K
+OS collector: linux-/proc
+Observing for 45s, status every 5s. Ctrl-C to stop early.
+
+Web UI: http://127.0.0.1:7676/  (kernel: http://127.0.0.1:7676/kernel, flame graph: http://127.0.0.1:7676/flame)
+Kernel feed: appraanagent can push to http://127.0.0.1:7676/api/kernel/ingest
+Kernel ingest security: AES-256-GCM shared key from /tmp/testkey.b64 ? fail-closed, envelopes only.
+JFR recording started in target: Started recording 2. No limit specified, using maxsize=250MB as default.
+--- t=+5s ------------------------------------------------------
+GC:    young=16 (+16)  old=0  |  pause total=21ms  max=3ms  |  last GC young: 235ms ago, old: never
+G1:    eden=0 B  survivor=2.3 MiB  old=3.8 MiB  regions=126  |  promotion(est.) 62.5 KiB total (+62.5 KiB this window, 16 young GCs)  |  humongous: 0 regions, 0 B used
+Alloc: rate=160.7 MiB/s  total=818.1 MiB  |  heap used (latest JFR)=6.1 MiB  |  source: jdk.ObjectAllocationSample weight (2252 sampled events)
+CPU:   702 execution samples total (+702 this window)  top leaf methods:
+            693  dev.appraan.demo.LoadApp.isPrime
+              5  java.util.ArrayList.clear
+              3  java.lang.String.hashCode
+              1  java.util.HashMap.put
+Cores: [0]=37% [1]=26% [2]=49% [3]=38%
+Kernel: source=push age=5s | off-CPU 99.6% (on 584 ms, off 138427 ms) episodes=4113 max=5672 ms | top reason WrQueue 64.1%
+        ops: File=4040 avg 139.0 us max 17270.1 us | Disk=1291 avg 251.1 us max 6088.5 us | Network=919 | ProcessThread=4813 | Registry=0
+        tcp: closed=262 tx=8.2 KiB rx=8.2 KiB open=0
+--- t=+10s ------------------------------------------------------
+GC:    young=27 (+11)  old=0  |  pause total=34ms  max=3ms  |  last GC young: 406ms ago, old: never
+G1:    eden=0 B  survivor=3.7 MiB  old=3.8 MiB  regions=126  |  promotion(est.) 64.5 KiB total (+2.0 KiB this window, 27 young GCs)  |  humongous: 0 regions, 0 B used
+Alloc: rate=152.7 MiB/s  total=1.6 GiB  |  heap used (latest JFR)=77.2 MiB  |  source: jdk.ObjectAllocationSample weight (3818 sampled events)
+CPU:   1194 execution samples total (+492 this window)  top leaf methods:
+           1184  dev.appraan.demo.LoadApp.isPrime
+              6  java.util.ArrayList.clear
+              3  java.lang.String.hashCode
+              1  java.util.HashMap.put
+Cores: [0]=78% [1]=21% [2]=13% [3]=22%
+Kernel: source=push age=10s | off-CPU 99.6% (on 584 ms, off 138427 ms) episodes=4113 max=5672 ms | top reason WrQueue 64.1%
+        ops: File=4040 avg 139.0 us max 17270.1 us | Disk=1291 avg 251.1 us max 6088.5 us | Network=919 | ProcessThread=4813 | Registry=0
+        tcp: closed=262 tx=8.2 KiB rx=8.2 KiB open=0
+--- t=+15s ------------------------------------------------------
+GC:    young=39 (+12)  old=0  |  pause total=51ms  max=4ms  |  last GC young: 89ms ago, old: never
+G1:    eden=0 B  survivor=3.6 MiB  old=3.9 MiB  regions=126  |  promotion(est.) 68.5 KiB total (+4.0 KiB this window, 39 young GCs)  |  humongous: 0 regions, 0 B used
+Alloc: rate=153.4 MiB/s  total=2.3 GiB  |  heap used (latest JFR)=7.5 MiB  |  source: jdk.ObjectAllocationSample weight (5333 sampled events)
+CPU:   1693 execution samples total (+499 this window)  top leaf methods:
+           1676  dev.appraan.demo.LoadApp.isPrime
+             12  java.util.ArrayList.clear
+              4  java.lang.String.hashCode
+              1  java.util.HashMap.put
+Cores: [0]=25% [1]=54% [2]=44% [3]=16%
+Kernel: source=push age=15s | off-CPU 99.6% (on 584 ms, off 138427 ms) episodes=4113 max=5672 ms | top reason WrQueue 64.1%
+        ops: File=4040 avg 139.0 us max 17270.1 us | Disk=1291 avg 251.1 us max 6088.5 us | Network=919 | ProcessThread=4813 | Registry=0
+        tcp: closed=262 tx=8.2 KiB rx=8.2 KiB open=0
+--- t=+20s ------------------------------------------------------
+GC:    young=50 (+11)  old=0  |  pause total=63ms  max=4ms  |  last GC young: 167ms ago, old: never
+G1:    eden=0 B  survivor=2.3 MiB  old=3.9 MiB  regions=126  |  promotion(est.) 72.6 KiB total (+4.0 KiB this window, 50 young GCs)  |  humongous: 0 regions, 0 B used
+Alloc: rate=154.4 MiB/s  total=3.1 GiB  |  heap used (latest JFR)=6.2 MiB  |  source: jdk.ObjectAllocationSample weight (6843 sampled events)
+CPU:   2174 execution samples total (+481 this window)  top leaf methods:
+           2151  dev.appraan.demo.LoadApp.isPrime
+             16  java.util.ArrayList.clear
+              6  java.lang.String.hashCode
+              1  java.util.HashMap.put
+Cores: [0]=34% [1]=39% [2]=44% [3]=29%
+Kernel: (stale) source=push age=20s | off-CPU 99.6% (on 584 ms, off 138427 ms) episodes=4113 max=5672 ms | top reason WrQueue 64.1%
+        ops: File=4040 avg 139.0 us max 17270.1 us | Disk=1291 avg 251.1 us max 6088.5 us | Network=919 | ProcessThread=4813 | Registry=0
+        tcp: closed=262 tx=8.2 KiB rx=8.2 KiB open=0
+--- t=+26s ------------------------------------------------------
+GC:    young=61 (+11)  old=0  |  pause total=85ms  max=4ms  |  last GC young: 370ms ago, old: never
+G1:    eden=0 B  survivor=2.4 MiB  old=3.9 MiB  regions=126  |  promotion(est.) 76.6 KiB total (+4.0 KiB this window, 61 young GCs)  |  humongous: 0 regions, 0 B used
+Alloc: rate=150.2 MiB/s  total=3.9 GiB  |  heap used (latest JFR)=6.3 MiB  |  source: jdk.ObjectAllocationSample weight (8409 sampled events)
+CPU:   2653 execution samples total (+479 this window)  top leaf methods:
+           2627  dev.appraan.demo.LoadApp.isPrime
+             17  java.util.ArrayList.clear
+              6  java.lang.String.hashCode
+              1  java.util.HashMap.getNode
+              1  dev.appraan.demo.LoadApp.churnAllocations
+Cores: [0]=43% [1]=34% [2]=31% [3]=67%
+Kernel: (stale) source=push age=25s | off-CPU 99.6% (on 584 ms, off 138427 ms) episodes=4113 max=5672 ms | top reason WrQueue 64.1%
+        ops: File=4040 avg 139.0 us max 17270.1 us | Disk=1291 avg 251.1 us max 6088.5 us | Network=919 | ProcessThread=4813 | Registry=0
+        tcp: closed=262 tx=8.2 KiB rx=8.2 KiB open=0
+--- t=+31s ------------------------------------------------------
+GC:    young=72 (+11)  old=0  |  pause total=103ms  max=5ms  |  last GC young: 426ms ago, old: never
+G1:    eden=0 B  survivor=3.6 MiB  old=3.9 MiB  regions=126  |  promotion(est.) 80.6 KiB total (+4.0 KiB this window, 72 young GCs)  |  humongous: 0 regions, 0 B used
+Alloc: rate=147.9 MiB/s  total=4.6 GiB  |  heap used (latest JFR)=7.5 MiB  |  source: jdk.ObjectAllocationSample weight (9961 sampled events)
+CPU:   3142 execution samples total (+489 this window)  top leaf methods:
+           3111  dev.appraan.demo.LoadApp.isPrime
+             20  java.util.ArrayList.clear
+              7  java.lang.String.hashCode
+              1  java.util.HashMap.putVal
+              1  java.util.HashMap.getNode
+Cores: [0]=56% [1]=29% [2]=35% [3]=35%
+Kernel: (stale) source=push age=30s | off-CPU 99.6% (on 584 ms, off 138427 ms) episodes=4113 max=5672 ms | top reason WrQueue 64.1%
+        ops: File=4040 avg 139.0 us max 17270.1 us | Disk=1291 avg 251.1 us max 6088.5 us | Network=919 | ProcessThread=4813 | Registry=0
+        tcp: closed=262 tx=8.2 KiB rx=8.2 KiB open=0
+--- t=+36s ------------------------------------------------------
+GC:    young=84 (+12)  old=0  |  pause total=117ms  max=5ms  |  last GC young: 217ms ago, old: never
+G1:    eden=0 B  survivor=3.5 MiB  old=3.9 MiB  regions=126  |  promotion(est.) 84.7 KiB total (+4.0 KiB this window, 84 young GCs)  |  humongous: 0 regions, 0 B used
+Alloc: rate=154.6 MiB/s  total=5.4 GiB  |  heap used (latest JFR)=7.4 MiB  |  source: jdk.ObjectAllocationSample weight (11530 sampled events)
+CPU:   3654 execution samples total (+512 this window)  top leaf methods:
+           3609  dev.appraan.demo.LoadApp.isPrime
+             29  java.util.ArrayList.clear
+             12  java.lang.String.hashCode
+              1  java.util.HashMap.putVal
+              1  java.util.HashMap.getNode
+Cores: [0]=19% [1]=30% [2]=57% [3]=30%
+Kernel: (stale) source=push age=36s | off-CPU 99.6% (on 584 ms, off 138427 ms) episodes=4113 max=5672 ms | top reason WrQueue 64.1%
+        ops: File=4040 avg 139.0 us max 17270.1 us | Disk=1291 avg 251.1 us max 6088.5 us | Network=919 | ProcessThread=4813 | Registry=0
+        tcp: closed=262 tx=8.2 KiB rx=8.2 KiB open=0
+--- t=+41s ------------------------------------------------------
+GC:    young=95 (+11)  old=0  |  pause total=129ms  max=5ms  |  last GC young: 374ms ago, old: never
+G1:    eden=0 B  survivor=2.3 MiB  old=3.9 MiB  regions=126  |  promotion(est.) 94.7 KiB total (+10.1 KiB this window, 95 young GCs)  |  humongous: 0 regions, 0 B used
+Alloc: rate=156.1 MiB/s  total=6.2 GiB  |  heap used (latest JFR)=6.2 MiB  |  source: jdk.ObjectAllocationSample weight (13097 sampled events)
+CPU:   4150 execution samples total (+496 this window)  top leaf methods:
+           4101  dev.appraan.demo.LoadApp.isPrime
+             31  java.util.ArrayList.clear
+             13  java.lang.String.hashCode
+              1  java.util.HashMap.putVal
+              1  java.util.HashMap.getNode
+Cores: [0]=25% [1]=43% [2]=30% [3]=39%
+Kernel: (stale) source=push age=41s | off-CPU 99.6% (on 584 ms, off 138427 ms) episodes=4113 max=5672 ms | top reason WrQueue 64.1%
+        ops: File=4040 avg 139.0 us max 17270.1 us | Disk=1291 avg 251.1 us max 6088.5 us | Network=919 | ProcessThread=4813 | Registry=0
+        tcp: closed=262 tx=8.2 KiB rx=8.2 KiB open=0
+--- t=+45s ------------------------------------------------------
+GC:    young=104 (+9)  old=0  |  pause total=142ms  max=5ms  |  last GC young: 91ms ago, old: never
+G1:    eden=0 B  survivor=2.2 MiB  old=3.9 MiB  regions=126  |  promotion(est.) 96.8 KiB total (+2.0 KiB this window, 104 young GCs)  |  humongous: 0 regions, 0 B used
+Alloc: rate=150.9 MiB/s  total=6.8 GiB  |  heap used (latest JFR)=6.1 MiB  |  source: jdk.ObjectAllocationSample weight (14252 sampled events)
+CPU:   4512 execution samples total (+362 this window)  top leaf methods:
+           4452  dev.appraan.demo.LoadApp.isPrime
+             39  java.util.ArrayList.clear
+             15  java.lang.String.hashCode
+              2  dev.appraan.demo.LoadApp.burnCpu
+              1  java.util.HashMap.putVal
+Cores: [0]=30% [1]=33% [2]=59% [3]=31%
+Kernel: (stale) source=push age=44s | off-CPU 99.6% (on 584 ms, off 138427 ms) episodes=4113 max=5672 ms | top reason WrQueue 64.1%
+        ops: File=4040 avg 139.0 us max 17270.1 us | Disk=1291 avg 251.1 us max 6088.5 us | Network=919 | ProcessThread=4813 | Registry=0
+        tcp: closed=262 tx=8.2 KiB rx=8.2 KiB open=0
+
+Appraan final summary: PID 6953 observed 45s ? young GCs 104, old GCs 0, allocated 6.8 GiB, CPU samples 4512.
+
+JFR recording 'appraan' stopped in target; detached.

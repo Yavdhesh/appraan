@@ -1,0 +1,2 @@
+Web UI: http://127.0.0.1:7676/  (kernel: http://127.0.0.1:7676/kernel, flame graph: http://127.0.0.1:7676/flame)
+Kernel feed security: plain JSON over HTTP (no encryption) ? loopback trust boundary; see README, "Kernel feed transport & security configuration".
