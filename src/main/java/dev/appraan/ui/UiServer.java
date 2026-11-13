@@ -2,15 +2,24 @@ package dev.appraan.ui;
 
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
+import com.sun.net.httpserver.HttpsConfigurator;
+import com.sun.net.httpserver.HttpsServer;
+import dev.appraan.kernel.KernelCrypto;
 import dev.appraan.kernel.KernelData;
 import dev.appraan.kernel.KernelFeed;
 
+import javax.net.ssl.KeyManagerFactory;
+import javax.net.ssl.SSLContext;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.security.KeyStore;
 import java.time.Instant;
 import java.util.Locale;
 import java.util.concurrent.Executors;
@@ -35,15 +44,40 @@ public final class UiServer implements AutoCloseable {
     private final HttpServer server;
     private final Supplier<Snapshot> snapshots;
     private final KernelFeed kernelFeed;   // nullable in tests/tools
+    private final byte[] kernelKey;        // nullable: shared-key ingest mode
+    private final boolean tls;
 
     public UiServer(Supplier<Snapshot> snapshots, int port) throws IOException {
-        this(snapshots, port, null);
+        this(snapshots, port, null, null, null, null);
     }
 
     public UiServer(Supplier<Snapshot> snapshots, int port, KernelFeed kernelFeed) throws IOException {
+        this(snapshots, port, kernelFeed, null, null, null);
+    }
+
+    /**
+     * @param kernelKey           when non-null, ingest is fail-closed: only
+     *                            AES-256-GCM envelopes from the agent are
+     *                            accepted (see {@link KernelCrypto})
+     * @param httpsKeystore       when non-null, the whole UI runs HTTPS
+     *                            with this PKCS12 keystore
+     * @param httpsKeystorePassword password for the keystore
+     */
+    public UiServer(Supplier<Snapshot> snapshots, int port, KernelFeed kernelFeed,
+                    byte[] kernelKey, Path httpsKeystore, char[] httpsKeystorePassword)
+            throws IOException {
         this.snapshots = snapshots;
         this.kernelFeed = kernelFeed;
-        this.server = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), port), 0);
+        this.kernelKey = kernelKey;
+        this.tls = httpsKeystore != null;
+        InetSocketAddress address = new InetSocketAddress(InetAddress.getLoopbackAddress(), port);
+        if (tls) {
+            HttpsServer https = HttpsServer.create(address, 0);
+            https.setHttpsConfigurator(new HttpsConfigurator(loadSslContext(httpsKeystore, httpsKeystorePassword)));
+            this.server = https;
+        } else {
+            this.server = HttpServer.create(address, 0);
+        }
         server.createContext("/", this::route);
         server.setExecutor(Executors.newCachedThreadPool(runnable -> {
             Thread t = new Thread(runnable, "appraan-ui");
@@ -62,7 +96,24 @@ public final class UiServer implements AutoCloseable {
     }
 
     public String baseUrl() {
-        return "http://127.0.0.1:" + port();
+        return (tls ? "https://127.0.0.1:" : "http://127.0.0.1:") + port();
+    }
+
+    private static SSLContext loadSslContext(Path keystorePath, char[] password) throws IOException {
+        try (InputStream in = Files.newInputStream(keystorePath)) {
+            KeyStore ks = KeyStore.getInstance("PKCS12");
+            ks.load(in, password);
+            KeyManagerFactory kmf = KeyManagerFactory.getInstance(
+                    KeyManagerFactory.getDefaultAlgorithm());
+            kmf.init(ks, password);
+            SSLContext ctx = SSLContext.getInstance("TLS");
+            ctx.init(kmf.getKeyManagers(), null, null);
+            return ctx;
+        } catch (IOException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new IOException("cannot load HTTPS keystore " + keystorePath + ": " + e.getMessage(), e);
+        }
     }
 
     private void route(HttpExchange exchange) throws IOException {
@@ -130,13 +181,44 @@ public final class UiServer implements AutoCloseable {
                     Json.obj().put("error", "kernel snapshot too large").toString());
             return;
         }
+        String contentType = contentTypeOf(exchange);
         byte[] plain;
-        try {
-            plain = decodeBody(body, exchange.getRequestHeaders().getFirst("Content-Encoding"));
-        } catch (IOException e) {
-            respond(exchange, 400, "application/json",
-                    Json.obj().put("error", "malformed gzip body").toString());
-            return;
+        if (kernelKey != null) {
+            // Fail-closed shared-key mode: ONLY a valid AES-256-GCM
+            // envelope (application/octet-stream) is accepted — plain or
+            // merely-gzipped posts are rejected like any other forgery.
+            if (!"application/octet-stream".equals(contentType)) {
+                respond(exchange, 400, "application/json", Json.obj()
+                        .put("error", "encrypted envelope required (application/octet-stream)")
+                        .toString());
+                return;
+            }
+            try {
+                KernelCrypto.Decrypted decrypted = KernelCrypto.decrypt(kernelKey, body);
+                // The envelope's flags byte says whether the sealed
+                // payload was gzipped (agent --gzip) or is plain JSON.
+                plain = decrypted.gzipped()
+                        ? decodeBody(decrypted.payload(), "gzip")
+                        : decrypted.payload();
+            } catch (RuntimeException | IOException e) {
+                respond(exchange, 400, "application/json",
+                        Json.obj().put("error", "undecryptable kernel snapshot").toString());
+                return;
+            }
+        } else {
+            if ("application/octet-stream".equals(contentType)) {
+                respond(exchange, 400, "application/json", Json.obj()
+                        .put("error", "encrypted feed not configured (no --kernel-key-file)")
+                        .toString());
+                return;
+            }
+            try {
+                plain = decodeBody(body, exchange.getRequestHeaders().getFirst("Content-Encoding"));
+            } catch (IOException e) {
+                respond(exchange, 400, "application/json",
+                        Json.obj().put("error", "malformed gzip body").toString());
+                return;
+            }
         }
         try {
             KernelData data = KernelData.parse(new String(plain, StandardCharsets.UTF_8));
@@ -147,6 +229,16 @@ public final class UiServer implements AutoCloseable {
             respond(exchange, 400, "application/json",
                     Json.obj().put("error", "malformed kernel snapshot").toString());
         }
+    }
+
+    /** The request's Content-Type, lowercased, parameters stripped (or null). */
+    private static String contentTypeOf(HttpExchange exchange) {
+        String ct = exchange.getRequestHeaders().getFirst("Content-Type");
+        if (ct == null) {
+            return null;
+        }
+        int semi = ct.indexOf(';');
+        return (semi >= 0 ? ct.substring(0, semi) : ct).trim().toLowerCase(Locale.ROOT);
     }
 
     /**

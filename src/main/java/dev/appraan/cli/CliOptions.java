@@ -9,7 +9,8 @@ package dev.appraan.cli;
  * kernel snapshots (the push feed needs no option and takes precedence).
  */
 public record CliOptions(String pid, int seconds, int intervalSeconds, int port, boolean uiEnabled,
-                         String kernelFile) {
+                         String kernelFile, String kernelKeyFile,
+                         String httpsKeystore, String httpsKeystorePassword) {
 
     public static final int DEFAULT_SECONDS = 30;
     public static final int DEFAULT_INTERVAL_SECONDS = 5;
@@ -49,6 +50,18 @@ public record CliOptions(String pid, int seconds, int intervalSeconds, int port,
                   --kernel-file PATH poll this appraanagent --out file for kernel
                                      snapshots (fallback; the agent's --push feed
                                      to /api/kernel/ingest needs no option and wins)
+                  --kernel-key-file PATH
+                                     base64 AES-256 key file for the kernel feed:
+                                     ingest becomes fail-closed — only sealed
+                                     appraanagent envelopes are accepted
+                                     (create the key with: appraanagent --gen-key)
+                  --https-keystore PATH
+                                     PKCS12 keystore: run the whole web UI over
+                                     HTTPS on the same port (requires the
+                                     password option below)
+                  --https-keystore-password PW
+                                     keystore password, or "env" to read the
+                                     APPRAAN_HTTPS_PASSWORD environment variable
                   -h, --help         show this help
                 """.formatted(DEFAULT_SECONDS, DEFAULT_INTERVAL_SECONDS, DEFAULT_PORT);
     }
@@ -60,6 +73,9 @@ public record CliOptions(String pid, int seconds, int intervalSeconds, int port,
         int port = DEFAULT_PORT;
         boolean uiEnabled = true;
         String kernelFile = null;
+        String kernelKeyFile = null;
+        String httpsKeystore = null;
+        String httpsKeystorePassword = null;
         for (int i = 0; i < args.length; i++) {
             String a = args[i];
             switch (a) {
@@ -69,6 +85,10 @@ public record CliOptions(String pid, int seconds, int intervalSeconds, int port,
                 case "--port" -> port = parsePort(args, ++i);
                 case "--no-ui" -> uiEnabled = false;
                 case "--kernel-file" -> kernelFile = parsePathValue(args, ++i, "--kernel-file");
+                case "--kernel-key-file" -> kernelKeyFile = parsePathValue(args, ++i, "--kernel-key-file");
+                case "--https-keystore" -> httpsKeystore = parsePathValue(args, ++i, "--https-keystore");
+                case "--https-keystore-password" -> httpsKeystorePassword =
+                        parseKeystorePassword(args, ++i);
                 default -> {
                     if (a.startsWith("--")) {
                         throw new Usage("Unknown option: " + a + "\n\n" + usageText());
@@ -89,7 +109,28 @@ public record CliOptions(String pid, int seconds, int intervalSeconds, int port,
         if (seconds > 0 && interval > seconds) {
             throw new Usage("--interval (" + interval + ") must not exceed --seconds (" + seconds + ")");
         }
-        return new CliOptions(pid, seconds, interval, port, uiEnabled, kernelFile);
+        if (httpsKeystore != null && httpsKeystorePassword == null) {
+            throw new Usage("--https-keystore requires --https-keystore-password <pw|env>.");
+        }
+        if (httpsKeystore == null && httpsKeystorePassword != null) {
+            throw new Usage("--https-keystore-password has no effect without --https-keystore.");
+        }
+        return new CliOptions(pid, seconds, interval, port, uiEnabled, kernelFile,
+                kernelKeyFile, httpsKeystore, httpsKeystorePassword);
+    }
+
+    /** The password value, resolving the literal {@code env} via APPRAAN_HTTPS_PASSWORD. */
+    private static String parseKeystorePassword(String[] args, int idx) throws Usage {
+        String value = parsePathValue(args, idx, "--https-keystore-password");
+        if ("env".equals(value)) {
+            String fromEnv = System.getenv("APPRAAN_HTTPS_PASSWORD");
+            if (fromEnv == null || fromEnv.isEmpty()) {
+                throw new Usage("--https-keystore-password env was given but the "
+                        + "APPRAAN_HTTPS_PASSWORD environment variable is not set.");
+            }
+            return fromEnv;
+        }
+        return value;
     }
 
     private static String parsePathValue(String[] args, int idx, String option) throws Usage {

@@ -3,6 +3,7 @@ package dev.appraan.cli;
 import dev.appraan.attach.TargetVm;
 import dev.appraan.discover.TargetInfo;
 import dev.appraan.jfr.LiveJfr;
+import dev.appraan.kernel.KernelCrypto;
 import dev.appraan.kernel.KernelData;
 import dev.appraan.kernel.KernelFeed;
 import dev.appraan.metrics.Metrics;
@@ -144,6 +145,18 @@ public final class Appraan {
                     options.kernelFile() == null ? null : Path.of(options.kernelFile()),
                     windows, options.pid(), options.port());
 
+            // Shared-key feed security: load the key up front; a bad key
+            // file is a hard error (fail-closed must never silently open).
+            byte[] kernelKey = null;
+            if (options.kernelKeyFile() != null) {
+                try {
+                    kernelKey = KernelCrypto.loadKey(Path.of(options.kernelKeyFile()));
+                } catch (IOException e) {
+                    System.err.println("Appraan: " + e.getMessage());
+                    return 1;
+                }
+            }
+
             // Embedded web UI over the same metric model: handlers read
             // immutable snapshots refreshed after every poll. A UI failure
             // (e.g. port in use) must never take the observer down with it.
@@ -152,7 +165,10 @@ public final class Appraan {
             UiServer ui = null;
             if (options.uiEnabled()) {
                 try {
-                    ui = new UiServer(liveSnapshot::get, options.port(), kernelFeed);
+                    ui = new UiServer(liveSnapshot::get, options.port(), kernelFeed, kernelKey,
+                            options.httpsKeystore() == null ? null : Path.of(options.httpsKeystore()),
+                            options.httpsKeystorePassword() == null ? null
+                                    : options.httpsKeystorePassword().toCharArray());
                     ui.start();
                     kernelFeed.setUiPort(ui.port());
                     System.out.println("Web UI: " + ui.baseUrl() + "/  (kernel: "
@@ -169,6 +185,25 @@ public final class Appraan {
             } else if (ui != null) {
                 System.out.println("Kernel feed: appraanagent can push to "
                         + ui.baseUrl() + "/api/kernel/ingest");
+            }
+            // State the effective feed/UI security mode plainly (never
+            // any key material or password).
+            if (options.httpsKeystore() != null) {
+                System.out.println("Web UI security: HTTPS (TLS), keystore "
+                        + options.httpsKeystore() + ".");
+            }
+            if (kernelKey != null) {
+                System.out.println("Kernel feed security: AES-256-GCM shared key from "
+                        + options.kernelKeyFile() + " — fail-closed, envelopes only.");
+                if (ui == null) {
+                    System.out.println("Appraan: warning — a kernel key is configured but the "
+                            + "web UI is off, so there is no ingest endpoint.");
+                }
+            } else if (ui != null) {
+                System.out.println("Kernel feed security: plain JSON over "
+                        + (options.httpsKeystore() != null ? "HTTPS" : "HTTP")
+                        + " (no encryption) — loopback trust boundary; "
+                        + "see README, \"Kernel feed transport & security configuration\".");
             }
 
             mainThread = Thread.currentThread();
