@@ -162,9 +162,11 @@ public final class Appraan {
             }
             System.out.flush();
 
-            // Publish the same numbers the console just printed to the web UI.
+            // Publish the same numbers the console just printed to the web UI,
+            // reusing this round's single per-core read (the collector is
+            // delta-based; a second read would measure a millisecond window).
             liveSnapshot.set(Snapshot.capture(info, metrics, os, jfr.watermark(),
-                    allocRate, elapsed));
+                    allocRate, elapsed, cores));
 
             prevAllocBytes = allocBytes;
             prevYoungGc = metrics.youngGcCount();

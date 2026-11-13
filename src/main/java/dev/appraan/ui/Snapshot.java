@@ -47,6 +47,21 @@ public record Snapshot(
     public static Snapshot capture(TargetInfo info, Metrics metrics, OsCollector os,
                                    Instant eventClockNow, double allocRateBytesPerSec,
                                    double elapsedSeconds) {
+        return capture(info, metrics, os, eventClockNow, allocRateBytesPerSec, elapsedSeconds,
+                os.perCoreCpuBusyPercent());
+    }
+
+    /**
+     * As {@link #capture(TargetInfo, Metrics, OsCollector, Instant, double, double)}
+     * but with a per-core reading taken by the caller. Per-core CPU is a
+     * delta between successive collector reads, so a round of observation
+     * must read it exactly once and share the result between the console
+     * block and the UI snapshot — otherwise the second read measures only
+     * the milliseconds since the first.
+     */
+    public static Snapshot capture(TargetInfo info, Metrics metrics, OsCollector os,
+                                   Instant eventClockNow, double allocRateBytesPerSec,
+                                   double elapsedSeconds, double[] coreBusyPercent) {
         return new Snapshot(
                 info.pid(),
                 info.versionLine(),
@@ -69,7 +84,7 @@ public record Snapshot(
                 List.copyOf(metrics.topLeafMethods(TOP_LEAF_LIMIT)),
                 List.copyOf(metrics.collapsedStacks()),
                 os.name(),
-                os.perCoreCpuBusyPercent().clone(),
+                coreBusyPercent.clone(),
                 elapsedSeconds,
                 Instant.now());
     }
