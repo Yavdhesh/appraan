@@ -53,6 +53,7 @@ public final class Metrics {
     // CPU
     private long executionSamples;
     private final Map<String, Long> leafMethodCounts = new HashMap<>();
+    private final Map<String, Long> collapsedStacks = new HashMap<>();
 
     public void onEvent(RecordedEvent e) {
         String type = e.getEventType().getName();
@@ -125,12 +126,19 @@ public final class Metrics {
         if (trace == null || trace.getFrames().isEmpty()) {
             return;
         }
-        RecordedFrame leaf = trace.getFrames().get(0);
-        if (leaf.getMethod() == null || leaf.getMethod().getType() == null) {
-            return;
+        List<RecordedFrame> frames = trace.getFrames();
+        RecordedFrame leaf = frames.get(0);
+        if (leaf.getMethod() != null && leaf.getMethod().getType() != null) {
+            leafMethodCounts.merge(Stacks.frameName(leaf), 1L, Long::sum);
         }
-        String name = leaf.getMethod().getType().getName() + "." + leaf.getMethod().getName();
-        leafMethodCounts.merge(name, 1L, Long::sum);
+        List<String> names = new ArrayList<>(frames.size());
+        for (RecordedFrame frame : frames) {
+            names.add(Stacks.frameName(frame));
+        }
+        String collapsed = Stacks.collapseLeafToRoot(names);
+        if (collapsed != null) {
+            collapsedStacks.merge(collapsed, 1L, Long::sum);
+        }
     }
 
     private static Duration safeDuration(RecordedEvent e, String field) {
@@ -192,6 +200,38 @@ public final class Metrics {
 
     public long executionSamples() {
         return executionSamples;
+    }
+
+    /**
+     * Collapsed stacks (root-first, {@code ';'}-joined) with sample counts,
+     * sorted by count descending. Feeds the flame graph and the JSON API;
+     * derived from the same {@code jdk.ExecutionSample} events as
+     * {@link #topLeafMethods(int)}, so the two views are consistent.
+     */
+    public List<Map.Entry<String, Long>> collapsedStacks() {
+        List<Map.Entry<String, Long>> entries = new ArrayList<>(collapsedStacks.entrySet());
+        entries.sort(Comparator.comparingLong((Map.Entry<String, Long> en) -> en.getValue()).reversed()
+                .thenComparing(Map.Entry::getKey));
+        return entries;
+    }
+
+    /** Samples that carried a usable stack trace (subset of {@link #executionSamples()}). */
+    public long stackSamples() {
+        long total = 0;
+        for (long v : collapsedStacks.values()) {
+            total += v;
+        }
+        return total;
+    }
+
+    /** End time of the most recent young GC, or {@code null} if none yet. */
+    public Instant lastYoungGcEnd() {
+        return lastYoungGcEnd;
+    }
+
+    /** End time of the most recent old GC, or {@code null} if none yet. */
+    public Instant lastOldGcEnd() {
+        return lastOldGcEnd;
     }
 
     public long lastHeapUsed() {

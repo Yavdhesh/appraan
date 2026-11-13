@@ -1,5 +1,15 @@
 # Appraan — Status
 
+Milestone 2 (in progress): embedded web UI (dashboard + JSON API + CPU flame graph)
+over the same metric model. Checkpoint log:
+- [x] M2 started; DESIGN.md mapping: UI renders the shared metric model
+      (Metrics/TargetInfo/OsCollector); DESIGN names no UI flags, so `--port`
+      (default 7676) and `--no-ui` are added as additive CLI options.
+- [x] Collapsed-stack collection in Metrics (Stacks helper, pure + unit-tested).
+- [ ] UI package: JSON API, dashboard page, flame graph SVG, UiServer.
+- [ ] CLI wiring (--port / --no-ui), build, tests.
+- [ ] Proof run 2 (proof/run2.log + snapshot artefacts), README/DESIGN updates.
+
 Milestone 1: skeleton, target discovery (Attach API), live JFR pipeline, OS collector SPI, demo target, proof run.
 
 ## Done
