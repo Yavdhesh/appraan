@@ -398,9 +398,10 @@ Linux /proc process-I/O parity subset. Proof: `proof/run4.log` +
 `proof/run4/` artefacts (fixture built from real verified Windows runs;
 the live agent→Appraan loop is verified on the user's Windows machine).
 
-Next milestone: central collector mode — Appraan without a local
-target, agents pushing from docker/k8s pods, one page per PID merging
-JVM + kernel data (see DESIGN.md, "Future: central collector mode").
+Next milestone: multi-PID dashboard + remote PID monitoring — several
+local PIDs under one tabbed UI (Overview + one tab per PID), plus
+remote PIDs fed by collectors running on the remote machine (see
+DESIGN.md, "Future: multi-PID dashboard + remote PID monitoring").
 The snapshot contract already carries the `host`/`labels` fields it
 needs.
 
