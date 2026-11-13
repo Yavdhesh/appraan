@@ -15,7 +15,7 @@ fi
 rm -rf build/test-classes
 mkdir -p build/test-classes
 find src/main/java src/test/java -name '*.java' > build/test-sources.txt
-"$JAVAC" -source 21 -target 21 \
+"$JAVAC" -source 24 -target 24 \
   --add-modules jdk.attach,jdk.jfr,jdk.management,jdk.httpserver \
   --add-exports jdk.attach/sun.tools.attach=ALL-UNNAMED \
   -d build/test-classes @build/test-sources.txt

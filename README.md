@@ -10,7 +10,7 @@ dependencies.
 See [DESIGN.md](DESIGN.md) for the architecture, the metric → source map and the
 platform-parity contract. See [STATUS.md](STATUS.md) for milestone progress.
 
-## Build (JDK 21)
+## Build (JDK 24)
 
 Linux / macOS:
 

@@ -18,7 +18,7 @@ mkdir build\classes
 mkdir dist
 
 dir /s /b src\main\java\*.java > build\sources.txt
-"%JAVAC%" -source 21 -target 21 --add-modules jdk.attach,jdk.jfr,jdk.management,jdk.httpserver --add-exports jdk.attach/sun.tools.attach=ALL-UNNAMED -d build\classes @build\sources.txt
+"%JAVAC%" -source 24 -target 24 --add-modules jdk.attach,jdk.jfr,jdk.management,jdk.httpserver --add-exports jdk.attach/sun.tools.attach=ALL-UNNAMED -d build\classes @build\sources.txt
 if errorlevel 1 exit /b 1
 
 "%JAR%" --create --file dist\appraan.jar --main-class dev.appraan.cli.Appraan -C build\classes .
