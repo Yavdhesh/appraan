@@ -37,6 +37,12 @@ public final class FlameGraphTest {
 
         check(FlameGraph.svg(List.of(), 600).contains("0 samples"), "empty input renders");
 
+        check(FlameGraph.widestPath(stacks).equals(List.of(
+                        "java.lang.Thread.run", "dev.appraan.demo.LoadApp.burnCpu",
+                        "dev.appraan.demo.LoadApp.isPrime")),
+                "widest path follows the hot stack down to isPrime");
+        check(FlameGraph.widestPath(List.of()).isEmpty(), "widest path of nothing is empty");
+
         System.out.println("FlameGraphTest: all " + checks + " checks passed");
     }
 

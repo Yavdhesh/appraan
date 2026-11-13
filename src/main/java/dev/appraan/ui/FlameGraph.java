@@ -51,6 +51,28 @@ public final class FlameGraph {
         return root;
     }
 
+    /**
+     * The widest root-to-leaf path: starting at the root, repeatedly follow
+     * the child carrying the most samples. Its last element is the single
+     * hottest leaf in the graph. Used by the proof harness (and handy for
+     * "what is the hottest path" summaries).
+     */
+    public static java.util.List<String> widestPath(List<Map.Entry<String, Long>> collapsedStacks) {
+        Node node = buildTree(collapsedStacks);
+        java.util.List<String> path = new java.util.ArrayList<>();
+        while (!node.children.isEmpty()) {
+            Node widest = null;
+            for (Node child : node.children.values()) {
+                if (widest == null || child.value > widest.value) {
+                    widest = child;
+                }
+            }
+            path.add(widest.name);
+            node = widest;
+        }
+        return path;
+    }
+
     /** Total samples in the tree (sum over all collapsed stacks). */
     public static long totalSamples(List<Map.Entry<String, Long>> collapsedStacks) {
         long total = 0;
