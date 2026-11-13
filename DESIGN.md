@@ -158,12 +158,38 @@ so the future central-collector mode needs no contract break.
 Appraan running *without* a local target: a central collector whose
 ingest is keyed by (host, pid, labels). Agents push from docker/k8s
 pods — an Appraan agent mode for JVM + Linux kernel data,
-appraanagent for Windows kernel data — and the UI lists observed PIDs
-with **one page per PID** merging that process's JVM data, kernel data
-and flame graphs. The single-machine loop (this milestone) is the
-special case where the collector happens to also hold the Attach
-session. Explicitly out of scope here; the `host`/`labels` contract
-fields above are this milestone's only preparation for it.
+appraanagent for Windows kernel data. The single-machine loop (this
+milestone) is the special case where the collector happens to also
+hold the Attach session. Explicitly out of scope here; the
+`host`/`labels` contract fields above are this milestone's only
+preparation for it.
+
+**Agreed UI spec (user-confirmed 2026-11-13: "tab1-PID1, tab2-PID2"):**
+
+- **Layout.** One Appraan UI with a tab bar. Tab 0 is **Overview**: a
+  grid of all known PIDs with headline health per process — allocation
+  rate, GC pressure, CPU, kernel ops rate, last-seen. Then **one tab
+  per PID**, each tab a single page merging that PID's JVM panels +
+  Kernel view + flame graph (the three views this milestone ships as
+  separate pages become one page per process).
+- **Tab identity.** A PID alone is *not* unique in containers (every
+  pod's JVM is often PID 1): the registry key is **(host, pid)** plus
+  labels, and the tab label is
+  `app/pod label · PID · host`, falling back gracefully when labels
+  are absent (host + PID always suffice).
+- **Routes.** Each PID tab is a real route (`/pid/<host>/<pid>`) so
+  links are shareable; the tab bar is generated from the registry,
+  never hard-coded.
+- **Lifecycle.** A PID whose feed stops goes **stale** (greyed tab,
+  "last seen Xs ago"), is retained for a **tombstone period of
+  10 minutes** for post-mortem viewing, then expires from the bar —
+  with the expired count noted on Overview.
+- **Polling.** The active tab refreshes at the UI's 1 s cadence;
+  background tabs refresh only their liveness summaries (cheap
+  registry data, not full snapshots).
+
+This is the agreed spec for the next milestone — a pinning of intent,
+not a description of the current build.
 
 ## Metric → source map
 
