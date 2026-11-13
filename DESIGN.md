@@ -153,16 +153,32 @@ optional top-level `host` (the agent fills it with the machine name)
 and `labels` (agent `--label k=v`) fields, parsed and displayed today,
 so the future central-collector mode needs no contract break.
 
-## Future: central collector mode (NEXT milestone — not built)
+## Future: multi-PID dashboard + remote PID monitoring (NEXT milestone — not built)
 
-Appraan running *without* a local target: a central collector whose
-ingest is keyed by (host, pid, labels). Agents push from docker/k8s
-pods — an Appraan agent mode for JVM + Linux kernel data,
-appraanagent for Windows kernel data. The single-machine loop (this
-milestone) is the special case where the collector happens to also
-hold the Attach session. Explicitly out of scope here; the
-`host`/`labels` contract fields above are this milestone's only
-preparation for it.
+*(Reshaped by the user 2026-11-13: the k8s/docker "central collector"
+framing is PARKED. The next milestone works with plain system PIDs —
+local first, then remote machines. Kubernetes/docker remains a later
+deployment of this same push architecture, not a design target now.)*
+
+Two capabilities, one registry:
+
+1. **Local multi-PID.** Appraan watches several local PIDs at once
+   (several Attach sessions in one process) and the UI becomes the
+   tab model below: an Overview plus one tab per watched PID.
+2. **Remote PIDs.** Collectors run **on the remote machine** — the
+   Attach API is same-machine only, so nothing else is possible: an
+   Appraan *agent mode* pushes JVM snapshots and appraanagent pushes
+   kernel snapshots to the dashboard over the ingest contract this
+   milestone already built (`host`/`labels` are in the contract for
+   exactly this). Remote PIDs appear as tabs beside local ones, keyed
+   by **(host, pid)**.
+
+**Safety rule (part of the milestone, not an afterthought):** the
+ingest/UI binding stays **loopback-only by default**. Binding beyond
+loopback requires `--kernel-key-file` or an HTTPS keystore to be
+configured; otherwise Appraan **refuses** the non-loopback bind with
+a clear message. Plain unauthenticated ingest is a loopback-only
+trust boundary, and it must never silently become a network one.
 
 **Agreed UI spec (user-confirmed 2026-11-13: "tab1-PID1, tab2-PID2"):**
 
@@ -172,9 +188,9 @@ preparation for it.
   per PID**, each tab a single page merging that PID's JVM panels +
   Kernel view + flame graph (the three views this milestone ships as
   separate pages become one page per process).
-- **Tab identity.** A PID alone is *not* unique in containers (every
-  pod's JVM is often PID 1): the registry key is **(host, pid)** plus
-  labels, and the tab label is
+- **Tab identity.** A PID alone is *not* unique across hosts (and in
+  containers every pod's JVM is often PID 1): the registry key is
+  **(host, pid)** plus labels, and the tab label is
   `app/pod label · PID · host`, falling back gracefully when labels
   are absent (host + PID always suffice).
 - **Routes.** Each PID tab is a real route (`/pid/<host>/<pid>`) so

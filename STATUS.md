@@ -65,12 +65,17 @@ with the plain-JSON --out file as fallback/recorder).
       external verification: the live ETW loop + interactive flame
       zoom on the user's Windows 11 machine (RUNBOOK three-window
       test in appraan-windows).
-- NEXT MILESTONE (not started): central collector mode — Appraan
-  without a local target, ingest keyed by (host, pid, labels), agents
-  pushing from docker/k8s pods, one page per PID merging JVM + kernel
-  data + flame graphs. See DESIGN.md, "Future: central collector
-  mode". The `host`/`labels` contract fields above are this
-  milestone's preparation for it.
+- NEXT MILESTONE (not started): **multi-PID dashboard + remote PID
+  monitoring** (plain system PIDs): several local PIDs at once under
+  the agreed tab model (Overview + one tab per PID, deep-linkable
+  `/pid/<host>/<pid>`, stale-grey + 10-minute tombstone), plus remote
+  PIDs fed by collectors running on the remote machine (Appraan agent
+  mode + appraanagent) over the same ingest contract; non-loopback
+  binding requires `--kernel-key-file` or HTTPS, else refused. The
+  k8s/docker central-collector framing is PARKED by the user (a later
+  deployment of the same push architecture). See DESIGN.md, "Future:
+  multi-PID dashboard + remote PID monitoring". The `host`/`labels`
+  contract fields above are this milestone's preparation for it.
 
 Milestone 3a: COMPLETE — G1 promotion estimate, region census with humongous
 reporting, old-GC proof via a promotion-heavy demo mode, and graceful
