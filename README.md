@@ -180,7 +180,7 @@ dotnet run -c Release --project .\src\appraanagent -- <PID> --push http://127.0.
 
 On the wire: the JSON gzip-compressed at maximum compression,
 `Content-Encoding: gzip`. Worth it when snapshots grow or the feed
-crosses a real network on the way to a future central collector;
+crosses a real network on the way to a remote dashboard;
 irrelevant cost/benefit on loopback at ~2 s intervals. Gzip also
 composes *inside* the Option B envelope (the envelope records, in an
 authenticated flags byte, whether its payload was gzipped).
