@@ -1,5 +1,10 @@
 package dev.appraan.ui;
 
+import dev.appraan.kernel.KernelData;
+import dev.appraan.kernel.KernelFeed;
+import dev.appraan.metrics.Metrics;
+import dev.appraan.os.ProcessIo;
+
 import java.util.Map;
 
 /**
@@ -38,12 +43,25 @@ public final class Pages {
                   .bar > div { background:#e8833a; height:100%; }
                   a { color:#6cb6ff; }
                   .err { color:#ff7b72; }
+                  .live-dot { display:inline-block; width:.6rem; height:.6rem; border-radius:50%;
+                    background:#8b98a5; vertical-align:baseline; margin-right:.3rem; }
+                  .live-dot.on { background:#3fb950; }
+                  .live-dot.stale { background:#d29922; }
+                  .hint { border:1px solid #d29922; background:#2a2113; border-radius:6px;
+                    padding:.6rem .8rem; margin-bottom:.6rem; }
+                  .hint code { display:block; margin-top:.4rem; color:#ffd479; white-space:pre-wrap;
+                    word-break:break-all; }
+                  .dim { opacity:.55; }
+                  .small { font-size:.8rem; color:#8b98a5; }
                 </style>
                 </head>
                 <body>
                 <h1>Appraan — the life of your application, live</h1>
                 <div class="sub">Observing PID <span id="pid">…</span> · <span id="version">…</span>
-                  · elapsed <span id="elapsed">…</span>s · <a href="/flame">CPU flame graph →</a></div>
+                  · elapsed <span id="elapsed">…</span>s
+                  · <span class="live-dot" id="live-dot"></span><span id="live-text">…</span>
+                  · updated <span id="updated">…</span>
+                  · <a href="/kernel">Kernel →</a> · <a href="/flame">CPU flame graph →</a></div>
                 <div class="grid">
                   <section class="card"><h2>Target</h2>
                     <table>
@@ -82,6 +100,18 @@ public final class Pages {
                     <p style="margin:.1rem 0 .5rem">Collector: <span id="cores-collector">…</span></p>
                     <table id="cores"></table>
                   </section>
+                  <section class="card"><h2>Kernel <span style="text-transform:none;letter-spacing:0">· <a href="/kernel">full page →</a></span></h2>
+                    <div id="kernel-hint"></div>
+                    <div id="kernel-body">
+                      <p style="margin:.1rem 0 .5rem" id="kernel-offcpu"></p>
+                      <table id="kernel-cats"></table>
+                      <div id="kernel-hist" class="small" style="margin-top:.4rem"></div>
+                      <p style="margin:.6rem 0 .3rem" id="kernel-tcp"></p>
+                      <table id="kernel-recent"></table>
+                      <table id="kernel-reasons" style="margin-top:.5rem"></table>
+                      <div id="kernel-procio" style="margin-top:.6rem"></div>
+                    </div>
+                  </section>
                 </div>
                 <p class="err" id="err"></p>
                 <script>
@@ -105,14 +135,94 @@ public final class Pages {
                     table.appendChild(tr);
                   }
                 }
+                function renderKernel(k) {
+                  const hintBox = $('kernel-hint');
+                  hintBox.replaceChildren();
+                  const body = $('kernel-body');
+                  if (k.hint && k.hint.state !== 'live') {
+                    const box = document.createElement('div');
+                    box.className = 'hint';
+                    const msg = document.createElement('div');
+                    msg.textContent = k.hint.message || '';
+                    box.appendChild(msg);
+                    if (k.hint.command) {
+                      const code = document.createElement('code');
+                      code.textContent = k.hint.command;
+                      box.appendChild(code);
+                    }
+                    hintBox.appendChild(box);
+                  }
+                  body.classList.toggle('dim', !!k.stale);
+                  if (!k.available) {
+                    $('kernel-offcpu').textContent = '';
+                    rows($('kernel-cats'), []);
+                    $('kernel-hist').textContent = '';
+                    $('kernel-tcp').textContent = '';
+                    rows($('kernel-recent'), []);
+                    rows($('kernel-reasons'), []);
+                  } else {
+                    const kd = k.kernel, oc = kd.offCpu;
+                    const topReason = oc.reasons.length ? oc.reasons[0] : null;
+                    $('kernel-offcpu').textContent =
+                      'Off-CPU ' + oc.offCpuPct + '% · on ' + Math.round(oc.onCpuMs) + ' ms · off '
+                      + Math.round(oc.offCpuMs) + ' ms · ' + oc.episodes + ' episodes · max '
+                      + Math.round(oc.maxEpisodeMs) + ' ms'
+                      + (topReason ? ' · top reason ' + topReason.name + ' ' + topReason.pct + '%' : '')
+                      + ' · source ' + k.source + ', ' + k.ageSeconds + 's old' + (k.stale ? ' (stale)' : '');
+                    rows($('kernel-cats'), kd.ops.categories.map(c => [
+                      {text: c.name},
+                      {text: String(c.count), num: true},
+                      {text: c.avgUs === null ? '—' : c.avgUs + ' µs avg', num: true},
+                      {text: c.maxUs === null ? '—' : c.maxUs + ' µs max', num: true}]));
+                    const histLines = [];
+                    for (const c of kd.ops.categories) {
+                      if (c.hist) {
+                        histLines.push(c.name + ' hist: ' + Object.entries(c.hist)
+                          .filter(([, v]) => v > 0).map(([b, v]) => b + ' ' + v).join(' · '));
+                      }
+                    }
+                    $('kernel-hist').textContent = histLines.join('  |  ');
+                    $('kernel-tcp').textContent =
+                      'TCP: ' + kd.tcp.closedTotal + ' closed · TX ' + fmtBytes(kd.tcp.txBytes)
+                      + ' · RX ' + fmtBytes(kd.tcp.rxBytes) + ' · ' + kd.tcp.stillOpen + ' still open';
+                    rows($('kernel-recent'), kd.tcp.recent.slice(0, 8).map(cn => [
+                      {text: cn.comm || ''},
+                      {text: cn.laddr + ':' + cn.lport + ' → ' + cn.raddr + ':' + cn.rport},
+                      {text: cn.txKb + '/' + cn.rxKb + ' KB', num: true},
+                      {text: cn.ms + ' ms', num: true}]));
+                    rows($('kernel-reasons'), oc.reasons.slice(0, 5).map(r => [
+                      {text: r.name},
+                      {text: String(r.episodes), num: true},
+                      {text: Math.round(r.totalMs) + ' ms', num: true},
+                      {text: r.pct + '%', num: true}]));
+                  }
+                  const pi = $('kernel-procio');
+                  pi.replaceChildren();
+                  if (k.procIo) {
+                    const p = document.createElement('p');
+                    p.className = 'small';
+                    p.textContent = 'Linux /proc process I/O (cumulative since process start): read '
+                      + fmtBytes(k.procIo.readBytes) + ' · write ' + fmtBytes(k.procIo.writeBytes)
+                      + ' · syscalls r/w ' + k.procIo.syscr + '/' + k.procIo.syscw;
+                    pi.appendChild(p);
+                  }
+                }
                 async function refresh() {
                   try {
-                    const [summary, gc, cpu, cores] = await Promise.all([
+                    const [summary, gc, cpu, cores, kernel] = await Promise.all([
                       fetch('/api/summary').then(r => r.json()),
                       fetch('/api/gc').then(r => r.json()),
                       fetch('/api/cpu').then(r => r.json()),
-                      fetch('/api/cores').then(r => r.json())]);
+                      fetch('/api/cores').then(r => r.json()),
+                      fetch('/api/kernel').then(r => r.json())]);
                     $('err').textContent = '';
+                    const ageSec = (Date.now() - Date.parse(summary.capturedAt)) / 1000;
+                    const dot = $('live-dot');
+                    if (ageSec < 3) { dot.className = 'live-dot on'; $('live-text').textContent = 'LIVE'; }
+                    else { dot.className = 'live-dot stale'; $('live-text').textContent = 'STALE'; }
+                    $('updated').textContent = new Date(summary.capturedAt).toLocaleTimeString()
+                      + (ageSec >= 1 ? ' (' + Math.floor(ageSec) + 's ago)' : '');
+                    renderKernel(kernel);
                     $('pid').textContent = summary.pid;
                     $('version').textContent = summary.version;
                     $('elapsed').textContent = summary.elapsedSeconds;
@@ -170,7 +280,7 @@ public final class Pages {
                   }
                 }
                 refresh();
-                setInterval(refresh, 2000);
+                setInterval(refresh, 1000);
                 </script>
                 </body>
                 </html>
@@ -195,7 +305,7 @@ public final class Pages {
                 </style>
                 </head>
                 <body>
-                <p><a href="/">← dashboard</a></p>
+                <p><a href="/">← dashboard</a> · <a href="/kernel">Kernel →</a></p>
                 <h1>CPU flame graph — PID """);
         sb.append(FlameGraph.esc(s.pid())).append("</h1>\n");
         sb.append("<p>").append(s.stackSamples())
@@ -214,6 +324,185 @@ public final class Pages {
         }
         sb.append("</table>\n");
         sb.append("<script>setTimeout(() => location.reload(), 15000);</script>\n");
+        sb.append("</body>\n</html>\n");
+        return sb.toString();
+    }
+
+    /**
+     * {@code GET /kernel} — the dedicated Kernel page: the same content as the
+     * dashboard's Kernel panel, server-rendered (works with JS disabled):
+     * hint/empty/stale states with the appraanagent guidance, ops categories
+     * with latency + histograms, TCP summary + recent connections, off-CPU
+     * summary + wait reasons + top threads, and the Linux /proc parity block.
+     */
+    public static String kernelPage(KernelFeed.View view, Snapshot s) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("""
+                <!DOCTYPE html>
+                <html lang="en">
+                <head>
+                <meta charset="utf-8">
+                <title>Appraan — Kernel</title>
+                <style>
+                  body { background:#0d1117; color:#e8ecf1; font-family:system-ui,sans-serif; margin:2rem; }
+                  h2 { font-size:1rem; color:#9fb4c8; text-transform:uppercase; letter-spacing:.06em; margin-top:1.6rem; }
+                  table { border-collapse:collapse; font-size:.9rem; margin-top:.4rem; }
+                  td, th { padding:.2rem .5rem; text-align:left; border-bottom:1px solid #232b36; }
+                  td.n, th.n { text-align:right; font-variant-numeric:tabular-nums; }
+                  a { color:#6cb6ff; }
+                  .hint { border:1px solid #d29922; background:#2a2113; border-radius:6px;
+                    padding:.6rem .8rem; margin:1rem 0; max-width:60rem; }
+                  .hint code { display:block; margin-top:.4rem; color:#ffd479; white-space:pre-wrap;
+                    word-break:break-all; }
+                  .dim { opacity:.55; }
+                  .small { font-size:.82rem; color:#8b98a5; }
+                </style>
+                </head>
+                <body>
+                <p><a href="/">← dashboard</a> · <a href="/flame">CPU flame graph →</a></p>
+                """);
+        sb.append("<h1>Kernel — PID ").append(FlameGraph.esc(s.pid())).append("</h1>\n");
+
+        KernelFeed.Hint hint = view.hint();
+        if (hint != null && !"live".equals(hint.state())) {
+            sb.append("<div class=\"hint\"><div>").append(FlameGraph.esc(hint.message()))
+                    .append("</div>");
+            if (hint.command() != null) {
+                sb.append("<code>").append(FlameGraph.esc(hint.command())).append("</code>");
+            }
+            sb.append("</div>\n");
+        }
+
+        KernelData d = view.data();
+        if (d != null) {
+            if (view.stale()) {
+                sb.append("<div class=\"dim\">\n");
+            }
+            sb.append("<p>Source: ").append(FlameGraph.esc(view.source()))
+                    .append(" · snapshot age ").append(view.ageSeconds()).append("s")
+                    .append(view.stale() ? " · <b>STALE</b>" : "")
+                    .append(" · agent window ").append(d.windowSeconds()).append("s</p>\n");
+
+            KernelData.OffCpu oc = d.offCpu();
+            sb.append("<h2>Off-CPU</h2>\n<p>")
+                    .append(String.format(java.util.Locale.ROOT, "%.1f", oc.offCpuPct()))
+                    .append("% off-CPU · on ").append(Math.round(oc.onCpuMs()))
+                    .append(" ms · off ").append(Math.round(oc.offCpuMs()))
+                    .append(" ms · ").append(oc.episodes())
+                    .append(" episodes · max episode ").append(Math.round(oc.maxEpisodeMs()))
+                    .append(" ms</p>\n");
+            if (!oc.reasons().isEmpty()) {
+                sb.append("<table><tr><th>Wait reason</th><th class=\"n\">Episodes</th>")
+                        .append("<th class=\"n\">Total</th><th class=\"n\">Share</th></tr>\n");
+                for (KernelData.Reason r : oc.reasons()) {
+                    sb.append("<tr><td>").append(FlameGraph.esc(r.name()))
+                            .append("</td><td class=\"n\">").append(r.episodes())
+                            .append("</td><td class=\"n\">").append(Math.round(r.totalMs()))
+                            .append(" ms</td><td class=\"n\">")
+                            .append(String.format(java.util.Locale.ROOT, "%.1f", r.pct()))
+                            .append("%</td></tr>\n");
+                }
+                sb.append("</table>\n");
+            }
+            if (!oc.threads().isEmpty()) {
+                sb.append("<table><tr><th>Thread</th><th class=\"n\">Episodes</th>")
+                        .append("<th class=\"n\">Off-CPU</th><th class=\"n\">Max episode</th>")
+                        .append("<th class=\"n\">On-CPU</th><th class=\"n\">Off %</th><th></th></tr>\n");
+                for (KernelData.ThreadStat t : oc.threads()) {
+                    sb.append("<tr><td>").append(t.tid())
+                            .append("</td><td class=\"n\">").append(t.episodes())
+                            .append("</td><td class=\"n\">").append(Math.round(t.offCpuMs()))
+                            .append(" ms</td><td class=\"n\">").append(Math.round(t.maxMs()))
+                            .append(" ms</td><td class=\"n\">").append(Math.round(t.onCpuMs()))
+                            .append(" ms</td><td class=\"n\">")
+                            .append(String.format(java.util.Locale.ROOT, "%.1f", t.offCpuPct()))
+                            .append("</td><td>").append(t.partial() ? "partial" : "")
+                            .append("</td></tr>\n");
+                }
+                sb.append("</table>\n");
+            }
+
+            sb.append("<h2>Kernel operations by category</h2>\n");
+            sb.append("<table><tr><th>Category</th><th class=\"n\">Count</th>")
+                    .append("<th class=\"n\">With latency</th><th class=\"n\">Avg</th>")
+                    .append("<th class=\"n\">Max</th><th>Kinds</th></tr>\n");
+            for (KernelData.Category c : d.categories()) {
+                sb.append("<tr><td>").append(FlameGraph.esc(c.name()))
+                        .append("</td><td class=\"n\">").append(c.count())
+                        .append("</td><td class=\"n\">").append(c.latOps())
+                        .append("</td><td class=\"n\">")
+                        .append(c.avgUs() == null ? "—" : c.avgUs() + " µs")
+                        .append("</td><td class=\"n\">")
+                        .append(c.maxUs() == null ? "—" : c.maxUs() + " µs")
+                        .append("</td><td class=\"small\">");
+                String sep = "";
+                for (Map.Entry<String, Long> k : c.kinds().entrySet()) {
+                    sb.append(sep).append(FlameGraph.esc(k.getKey())).append(' ').append(k.getValue());
+                    sep = " · ";
+                }
+                sb.append("</td></tr>\n");
+                if (!c.hist().isEmpty()) {
+                    sb.append("<tr><td></td><td class=\"small\" colspan=\"5\">hist: ");
+                    String hsep = "";
+                    for (Map.Entry<String, Long> hb : c.hist().entrySet()) {
+                        if (hb.getValue() == 0) {
+                            continue;
+                        }
+                        sb.append(hsep).append(FlameGraph.esc(hb.getKey())).append(' ')
+                                .append(hb.getValue());
+                        hsep = " · ";
+                    }
+                    sb.append("</td></tr>\n");
+                }
+            }
+            sb.append("</table>\n");
+            sb.append("<p class=\"small\">Diagnostics: pending file ops ")
+                    .append(d.diagnostics().pendingFileOps())
+                    .append(" · unmatched completions ").append(d.diagnostics().unmatchedCompletions())
+                    .append(" · duplicate starts ").append(d.diagnostics().duplicateStarts())
+                    .append(" · evicted pending ").append(d.diagnostics().evictedPending())
+                    .append("</p>\n");
+
+            KernelData.Tcp tcp = d.tcp();
+            sb.append("<h2>TCP connections</h2>\n<p>")
+                    .append(tcp.closedTotal()).append(" closed · TX ")
+                    .append(Metrics.formatBytes(tcp.txBytes())).append(" · RX ")
+                    .append(Metrics.formatBytes(tcp.rxBytes())).append(" · ")
+                    .append(tcp.stillOpen()).append(" still open · ")
+                    .append(tcp.unmatchedDisconnects()).append(" unmatched disconnects</p>\n");
+            if (!tcp.recent().isEmpty()) {
+                sb.append("<table><tr><th>Process</th><th>Local → remote</th>")
+                        .append("<th class=\"n\">TX/RX</th><th class=\"n\">Lifetime</th></tr>\n");
+                for (KernelData.Conn cn : tcp.recent()) {
+                    sb.append("<tr><td>").append(FlameGraph.esc(cn.comm()))
+                            .append("</td><td>").append(FlameGraph.esc(cn.laddr())).append(':')
+                            .append(cn.lport()).append(" → ").append(FlameGraph.esc(cn.raddr()))
+                            .append(':').append(cn.rport())
+                            .append("</td><td class=\"n\">").append(cn.txKb()).append(" / ")
+                            .append(cn.rxKb()).append(" KB</td><td class=\"n\">")
+                            .append(cn.ms()).append(" ms</td></tr>\n");
+                }
+                sb.append("</table>\n");
+            }
+            if (view.stale()) {
+                sb.append("</div>\n");
+            }
+        }
+
+        ProcessIo procIo = s.procIo();
+        if (procIo != null) {
+            sb.append("<h2>Process I/O — Linux /proc (parity subset)</h2>\n<p>")
+                    .append("Read ").append(Metrics.formatBytes(procIo.readBytes()))
+                    .append(" · write ").append(Metrics.formatBytes(procIo.writeBytes()))
+                    .append(" · read/write syscalls ").append(procIo.syscr())
+                    .append(" / ").append(procIo.syscw())
+                    .append(" · cancelled writes ").append(Metrics.formatBytes(procIo.cancelledWriteBytes()))
+                    .append("</p>\n<p class=\"small\">Cumulative since process start, from ")
+                    .append("/proc/&lt;pid&gt;/io — semantics differ from the ETW snapshot ")
+                    .append("windows above: these counters never reset.</p>\n");
+        }
+
+        sb.append("<script>setTimeout(() => location.reload(), 5000);</script>\n");
         sb.append("</body>\n</html>\n");
         return sb.toString();
     }

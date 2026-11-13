@@ -1,5 +1,9 @@
 package dev.appraan.ui;
 
+import dev.appraan.kernel.KernelData;
+import dev.appraan.kernel.KernelFeed;
+import dev.appraan.os.ProcessIo;
+
 import java.util.Map;
 
 /**
@@ -122,6 +126,131 @@ public final class JsonApi {
         return Json.obj()
                 .put("totalSamples", s.stackSamples())
                 .putRaw("stacks", stacks.toString())
+                .toString();
+    }
+
+    /**
+     * {@code GET /api/kernel} — the freshest kernel snapshot (re-serialised
+     * from the parsed model, so what the panel shows is exactly what
+     * Appraan parsed), its source/age/staleness, the server-composed hint
+     * for empty/stale states, and the Linux /proc process-I/O counters
+     * when the OS collector provides them.
+     */
+    public static String kernel(KernelFeed.View view, ProcessIo procIo) {
+        KernelFeed.Hint hint = view.hint();
+        Json.Obj out = Json.obj()
+                .put("available", view.data() != null)
+                .put("source", view.source())
+                .put("ageSeconds", view.ageSeconds())
+                .put("stale", view.stale())
+                .putRaw("hint", Json.obj()
+                        .put("state", hint.state())
+                        .put("message", hint.message())
+                        .put("command", hint.command())
+                        .toString());
+        if (view.data() != null) {
+            out.putRaw("kernel", kernelDocument(view.data()));
+        }
+        if (procIo != null) {
+            out.putRaw("procIo", Json.obj()
+                    .put("syscr", procIo.syscr())
+                    .put("syscw", procIo.syscw())
+                    .put("readBytes", procIo.readBytes())
+                    .put("writeBytes", procIo.writeBytes())
+                    .put("cancelledWriteBytes", procIo.cancelledWriteBytes())
+                    .put("basis", "Linux /proc/<pid>/io — cumulative since process start")
+                    .toString());
+        } else {
+            out.putRaw("procIo", "null");
+        }
+        return out.toString();
+    }
+
+    /** Re-serialises a parsed kernel snapshot in the agent's document shape. */
+    private static String kernelDocument(KernelData d) {
+        Json.Arr categories = Json.arr();
+        for (KernelData.Category c : d.categories()) {
+            Json.Obj kinds = Json.obj();
+            c.kinds().forEach(kinds::put);
+            Json.Obj cat = Json.obj()
+                    .put("name", c.name())
+                    .put("count", c.count())
+                    .put("latOps", c.latOps())
+                    .putRaw("avgUs", c.avgUs() == null ? "null" : Double.toString(c.avgUs()))
+                    .putRaw("maxUs", c.maxUs() == null ? "null" : Double.toString(c.maxUs()))
+                    .putRaw("kinds", kinds.toString());
+            if (!c.hist().isEmpty()) {
+                Json.Obj hist = Json.obj();
+                c.hist().forEach(hist::put);
+                cat.putRaw("hist", hist.toString());
+            }
+            categories.addRaw(cat.toString());
+        }
+        Json.Arr recent = Json.arr();
+        for (KernelData.Conn conn : d.tcp().recent()) {
+            recent.addRaw(Json.obj()
+                    .put("pid", conn.pid())
+                    .put("comm", conn.comm())
+                    .put("laddr", conn.laddr())
+                    .put("lport", conn.lport())
+                    .put("raddr", conn.raddr())
+                    .put("rport", conn.rport())
+                    .put("txKb", conn.txKb())
+                    .put("rxKb", conn.rxKb())
+                    .put("ms", conn.ms())
+                    .toString());
+        }
+        Json.Arr reasons = Json.arr();
+        for (KernelData.Reason r : d.offCpu().reasons()) {
+            reasons.addRaw(Json.obj()
+                    .put("name", r.name())
+                    .put("episodes", r.episodes())
+                    .put("totalMs", r.totalMs())
+                    .put("pct", r.pct())
+                    .toString());
+        }
+        Json.Arr threads = Json.arr();
+        for (KernelData.ThreadStat t : d.offCpu().threads()) {
+            threads.addRaw(Json.obj()
+                    .put("tid", t.tid())
+                    .put("episodes", t.episodes())
+                    .put("offCpuMs", t.offCpuMs())
+                    .put("maxMs", t.maxMs())
+                    .put("onCpuMs", t.onCpuMs())
+                    .put("offCpuPct", t.offCpuPct())
+                    .put("partial", t.partial())
+                    .toString());
+        }
+        return Json.obj()
+                .put("pid", d.pid())
+                .put("tEpochMs", d.tEpochMs())
+                .put("windowSeconds", d.windowSeconds())
+                .putRaw("ops", Json.obj()
+                        .putRaw("categories", categories.toString())
+                        .putRaw("diagnostics", Json.obj()
+                                .put("pendingFileOps", d.diagnostics().pendingFileOps())
+                                .put("unmatchedCompletions", d.diagnostics().unmatchedCompletions())
+                                .put("duplicateStarts", d.diagnostics().duplicateStarts())
+                                .put("evictedPending", d.diagnostics().evictedPending())
+                                .toString())
+                        .toString())
+                .putRaw("tcp", Json.obj()
+                        .put("closedTotal", d.tcp().closedTotal())
+                        .put("txBytes", d.tcp().txBytes())
+                        .put("rxBytes", d.tcp().rxBytes())
+                        .put("stillOpen", d.tcp().stillOpen())
+                        .put("unmatchedDisconnects", d.tcp().unmatchedDisconnects())
+                        .putRaw("recent", recent.toString())
+                        .toString())
+                .putRaw("offCpu", Json.obj()
+                        .put("onCpuMs", d.offCpu().onCpuMs())
+                        .put("offCpuMs", d.offCpu().offCpuMs())
+                        .put("offCpuPct", d.offCpu().offCpuPct())
+                        .put("episodes", d.offCpu().episodes())
+                        .put("maxEpisodeMs", d.offCpu().maxEpisodeMs())
+                        .putRaw("reasons", reasons.toString())
+                        .putRaw("threads", threads.toString())
+                        .toString())
                 .toString();
     }
 
