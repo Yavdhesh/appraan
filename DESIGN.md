@@ -37,6 +37,31 @@ contract below.
                 └──────────────────────────────────────────────────────────────────────┘
 ```
 
+## Milestone 2 — embedded web UI
+
+The console's metric model is rendered by a second output: an embedded web
+UI (JDK `HttpServer`, zero dependencies), started alongside the collectors
+unless `--no-ui` is given (`--port` sets the loopback port, default 7676).
+
+- **Snapshot model.** After each JFR poll, the CLI captures an immutable
+  `Snapshot` of TargetInfo + Metrics + the OS collector. HTTP handlers only
+  read snapshots, so a page never observes a half-updated state, and the
+  console block and the UI publish identical numbers for a round. Per-core
+  CPU is read exactly once per round and shared: the Linux collector is
+  delta-based, so a second read would measure a millisecond window instead
+  of the round (found by proof run 2; see STATUS.md).
+- **Pages.** `/` is a single self-contained HTML file (inline CSS/vanilla
+  JS, no external assets) polling the JSON API every 2 s. `/flame` is a
+  server-rendered SVG flame graph built from collapsed stacks of the same
+  `jdk.ExecutionSample` events as the top-leaf table (one collection, two
+  views — they cannot disagree).
+- **JSON API.** `/api/summary`, `/api/gc`, `/api/cpu`, `/api/cores`,
+  `/api/stacks` — pure functions from `Snapshot` to JSON, so they are
+  unit-testable and snapshot-able without a running server.
+- **Loopback only.** The UI exposes live internals of the observed process;
+  it binds to 127.0.0.1 by design. A UI start failure (port in use) degrades
+  to console-only output, never fails the observation.
+
 Why Attach + JFR instead of JMX/RMI or agents:
 
 - The Attach API uses a **local** mechanism (Unix socket file / Windows named pipe) —

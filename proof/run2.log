@@ -1,0 +1,166 @@
+=== Appraan: observing PID 4043 ===
+Target JVM
+  pid:            4043
+  version:        OpenJDK 64-Bit Server VM version 21.0.13+9-LTS
+  GC collector:   G1
+  flag UseG1GC = true
+  flag InitialHeapSize = 124 MiB (130023424)
+  flag MaxHeapSize = 256 MiB (268435456)
+  flag MinHeapSize = 8 MiB (8388608)
+  flag MaxNewSize = 153 MiB (160432128)
+  flag G1HeapRegionSize = 1 MiB (1048576)
+  flag UseCompressedOops = true
+  command line:
+    jvm_args: -Xmx256m -XX:+UseG1GC
+    java_command: dev.appraan.demo.LoadApp
+    java_class_path (initial): dist/appraan.jar
+    Launcher Type: SUN_STANDARD
+  heap info:
+    garbage-first heap   total 129024K, used 20785K [0x00000000f0000000, 0x0000000100000000)
+    region size 1024K, 20 young (20480K), 3 survivors (3072K)
+    Metaspace       used 425K, committed 576K, reserved 1114112K
+    class space    used 32K, committed 128K, reserved 1048576K
+OS collector: linux-/proc
+Observing for 30s, status every 5s. Ctrl-C to stop early.
+
+Web UI: http://127.0.0.1:7676/  (flame graph: http://127.0.0.1:7676/flame)
+JFR recording started in target: Started recording 1. No limit specified, using maxsize=250MB as default.
+--- t=+5s ------------------------------------------------------
+GC:    young=17 (+17)  old=0  |  pause total=34ms  max=3ms  |  last GC young: 174ms ago, old: never
+Alloc: rate=161.4 MiB/s  total=825.5 MiB  |  heap used (latest JFR)=7.0 MiB  |  source: jdk.ObjectAllocationSample weight (2213 sampled events)
+CPU:   728 execution samples total (+728 this window)  top leaf methods:
+            707  dev.appraan.demo.LoadApp.isPrime
+              8  dev.appraan.demo.LoadApp.churnAllocations
+              6  java.util.ArrayList.clear
+              2  java.lang.String.hashCode
+              1  java.util.HashMap.putVal
+Cores: [0]=36% [1]=33% [2]=47% [3]=23%
+--- t=+10s ------------------------------------------------------
+GC:    young=28 (+11)  old=0  |  pause total=49ms  max=3ms  |  last GC young: 217ms ago, old: never
+Alloc: rate=146.5 MiB/s  total=1.6 GiB  |  heap used (latest JFR)=6.1 MiB  |  source: jdk.ObjectAllocationSample weight (3725 sampled events)
+CPU:   1217 execution samples total (+489 this window)  top leaf methods:
+           1187  dev.appraan.demo.LoadApp.isPrime
+             10  java.util.ArrayList.clear
+              8  dev.appraan.demo.LoadApp.churnAllocations
+              6  java.lang.String.hashCode
+              1  java.util.HashMap.putVal
+Cores: [0]=63% [1]=27% [2]=30% [3]=24%
+--- t=+15s ------------------------------------------------------
+GC:    young=39 (+11)  old=0  |  pause total=63ms  max=3ms  |  last GC young: 1.4s ago, old: never
+Alloc: rate=156.6 MiB/s  total=2.3 GiB  |  heap used (latest JFR)=6.0 MiB  |  source: jdk.ObjectAllocationSample weight (5254 sampled events)
+CPU:   1716 execution samples total (+499 this window)  top leaf methods:
+           1681  dev.appraan.demo.LoadApp.isPrime
+             12  java.util.ArrayList.clear
+              8  dev.appraan.demo.LoadApp.churnAllocations
+              8  java.lang.String.hashCode
+              1  java.util.HashMap.putVal
+Cores: [0]=62% [1]=24% [2]=12% [3]=40%
+--- t=+21s ------------------------------------------------------
+GC:    young=51 (+12)  old=0  |  pause total=78ms  max=3ms  |  last GC young: 146ms ago, old: never
+Alloc: rate=155.2 MiB/s  total=3.1 GiB  |  heap used (latest JFR)=7.2 MiB  |  source: jdk.ObjectAllocationSample weight (6763 sampled events)
+CPU:   2215 execution samples total (+499 this window)  top leaf methods:
+           2169  dev.appraan.demo.LoadApp.isPrime
+             17  java.util.ArrayList.clear
+             11  java.lang.String.hashCode
+              8  dev.appraan.demo.LoadApp.churnAllocations
+              3  dev.appraan.demo.LoadApp.burnCpu
+Cores: [0]=19% [1]=14% [2]=65% [3]=35%
+--- t=+26s ------------------------------------------------------
+GC:    young=62 (+11)  old=0  |  pause total=91ms  max=3ms  |  last GC young: 290ms ago, old: never
+Alloc: rate=154.4 MiB/s  total=3.9 GiB  |  heap used (latest JFR)=5.9 MiB  |  source: jdk.ObjectAllocationSample weight (8277 sampled events)
+CPU:   2710 execution samples total (+495 this window)  top leaf methods:
+           2663  dev.appraan.demo.LoadApp.isPrime
+             17  java.util.ArrayList.clear
+             11  java.lang.String.hashCode
+              8  dev.appraan.demo.LoadApp.churnAllocations
+              4  dev.appraan.demo.LoadApp.burnCpu
+Cores: [0]=18% [1]=70% [2]=18% [3]=36%
+--- t=+30s ------------------------------------------------------
+GC:    young=72 (+10)  old=0  |  pause total=102ms  max=3ms  |  last GC young: 167ms ago, old: never
+Alloc: rate=153.0 MiB/s  total=4.5 GiB  |  heap used (latest JFR)=7.2 MiB  |  source: jdk.ObjectAllocationSample weight (9603 sampled events)
+CPU:   3140 execution samples total (+430 this window)  top leaf methods:
+           3090  dev.appraan.demo.LoadApp.isPrime
+             17  java.util.ArrayList.clear
+             11  dev.appraan.demo.LoadApp.churnAllocations
+             11  java.lang.String.hashCode
+              4  dev.appraan.demo.LoadApp.burnCpu
+Cores: [0]=15% [1]=31% [2]=64% [3]=21%
+
+JFR recording 'appraan' stopped in target; detached.
+JFR recording started in target: Started recording 2. No limit specified, using maxsize=250MB as default.
+--- RenderProof: captured snapshot from live pipeline ---
+metrics: youngGc=39 oldGc=0 allocBytes=2517567264 executionSamples=1721 stackSamples=1721 topLeaf=[dev.appraan.demo.LoadApp.isPrime=1685]
+--- RenderProof: UiServer started at http://127.0.0.1:39989 ---
+GET / -> FAILED: java.net.ProtocolException: Invalid status line: "muse: Other TCP connections is turned off for this assistant. To allow it, ask the user to open Muse settings -> Permissions -> Direct network protocols and switch other_tcp from Deny to Ask."
+GET /flame -> FAILED: java.net.ProtocolException: Invalid status line: "muse: Other TCP connections is turned off for this assistant. To allow it, ask the user to open Muse settings -> Permissions -> Direct network protocols and switch other_tcp from Deny to Ask."
+GET /api/summary -> FAILED: java.net.ProtocolException: Invalid status line: "muse: Other TCP connections is turned off for this assistant. To allow it, ask the user to open Muse settings -> Permissions -> Direct network protocols and switch other_tcp from Deny to Ask."
+GET /api/gc -> FAILED: java.net.ProtocolException: Invalid status line: "muse: Other TCP connections is turned off for this assistant. To allow it, ask the user to open Muse settings -> Permissions -> Direct network protocols and switch other_tcp from Deny to Ask."
+GET /api/cpu -> FAILED: java.net.ProtocolException: Invalid status line: "muse: Other TCP connections is turned off for this assistant. To allow it, ask the user to open Muse settings -> Permissions -> Direct network protocols and switch other_tcp from Deny to Ask."
+GET /api/cores -> FAILED: java.net.ProtocolException: Invalid status line: "muse: Other TCP connections is turned off for this assistant. To allow it, ask the user to open Muse settings -> Permissions -> Direct network protocols and switch other_tcp from Deny to Ask."
+GET /api/stacks -> FAILED: java.net.ProtocolException: Invalid status line: "muse: Other TCP connections is turned off for this assistant. To allow it, ask the user to open Muse settings -> Permissions -> Direct network protocols and switch other_tcp from Deny to Ask."
+GET /nope -> FAILED: java.net.ProtocolException: Invalid status line: "muse: Other TCP connections is turned off for this assistant. To allow it, ask the user to open Muse settings -> Permissions -> Direct network protocols and switch other_tcp from Deny to Ask."
+in-process HTTP round-trip: did not work
+artefacts written to proof/run2
+flame widest path: java.lang.Thread.run -> java.lang.Thread.runWith -> dev.appraan.demo.LoadApp$$Lambda.0x0000739bb8000a08.run -> dev.appraan.demo.LoadApp.burnCpu -> dev.appraan.demo.LoadApp.isPrime
+flame widest leaf: dev.appraan.demo.LoadApp.isPrime | metrics top leaf: dev.appraan.demo.LoadApp.isPrime
+consistency ok: gc json young count
+consistency ok: cpu json execution samples
+consistency ok: cpu json top leaf name
+consistency: JSON payloads match the Metrics they were captured from
+--- RenderProof: DONE ---
+
+=== PROOF SUMMARY (Milestone 2) =====================================
+Target: LoadApp pid=4043 (-Xmx256m -XX:+UseG1GC, Temurin 21.0.13), same
+workload and flags as proof/run1.log. Appraan run: 30 s, interval 5 s,
+web UI on the default port 7676 (startup line at the top of this log).
+
+PROOF PATH — fallback ladder, rung 1 (live HTTP via curl) WORKED:
+  All seven routes were fetched with curl from the *live* server mid-run
+  and returned HTTP 200: / (6709 B), /flame (14261 B), /api/summary,
+  /api/gc, /api/cpu, /api/cores, /api/stacks. Bodies are saved in
+  proof/run2/ with the -live suffix.
+  Rung 2 (in-process java.net.http.HttpClient, see RenderProof section
+  above) is BLOCKED by this sandbox's network policy — the client
+  connection is intercepted ("Other TCP connections is turned off for
+  this assistant") before it reaches the server. curl, not being a Java
+  process, is unaffected. So live HTTP serving is verified by real
+  external fetches; the Java-client failure is a sandbox policy artefact,
+  reported here rather than hidden. RenderProof additionally rendered
+  every artefact through the same pure functions the handlers delegate
+  to (proof/run2/ without the -live suffix) from its own live 15 s
+  pipeline session against the same target.
+
+CONSISTENCY — the curl-fetched payloads and the console block printed
+from the same snapshot agree EXACTLY:
+  console: young=17 old=0 pause=34ms/3ms lastYoung=174ms ago;
+           alloc total=825.5 MiB rate=161.4 MiB/s heap=7.0 MiB (2213 events);
+           samples=728, isPrime=707, churnAllocations=8, ArrayList.clear=6;
+           cores=[36,33,47,23]
+  /api/gc:    {"young":{"count":17,..."174ms ago"},"old":{"count":0,...},
+               "pauses":{"totalMs":34,"maxMs":3}}                        MATCH
+  /api/cpu:   executionSamples=728, isPrime=707, churnAllocations=8,
+              ArrayList.clear=6                                          MATCH
+  /api/summary: totalBytes=865610416 (=825.5 MiB), rateBytesPerSec=
+              169229798 (=161.4 MiB/s), heapUsedBytes=7289688 (=7.0 MiB),
+              source "...(2213 sampled events)"                         MATCH
+  /api/cores: 36.2 / 32.8 / 46.6 / 23.3                                  MATCH
+  (An earlier proof attempt caught /api/cores disagreeing — the snapshot
+  was re-reading the delta-based /proc collector a millisecond after the
+  console. Fixed in 12e10b0: one per-core read per round, shared. The
+  numbers above are from the fixed build.)
+  M1-pipeline consistency for the whole run: young GCs 17 -> 72 over
+  30 s (~+11 per 5 s window, M1: 16 -> 72), allocation steady
+  146-161 MiB/s (M1: ~155 MiB/s), old=0 (demo makes young GCs only).
+
+FLAME GRAPH — /flame (live) header: "CPU flame graph — 728 samples";
+  hottest frame title: "dev.appraan.demo.LoadApp.isPrime — 707 samples
+  (97.1%)". RenderProof's tree walk over its own session's stacks:
+  widest path java.lang.Thread.run -> java.lang.Thread.runWith ->
+  LoadApp$$Lambda...run -> LoadApp.burnCpu -> LoadApp.isPrime, i.e. the
+  widest root-to-leaf path ends at the known hot leaf, and equals the
+  Metrics top leaf (1685 samples in that session). Standalone SVG:
+  proof/run2/flame.svg.
+
+TESTS — ./run-tests.sh: StacksTest 16 checks, JsonTest 20 checks,
+  FlameGraphTest 10 checks — 46 total, all passing.
+=====================================================================

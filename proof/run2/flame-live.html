@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Appraan — CPU flame graph</title>
+<style>
+  body { background:#0d1117; color:#e8ecf1; font-family:system-ui,sans-serif; margin:2rem; }
+  table { border-collapse:collapse; font-size:.9rem; margin-top:1rem; }
+  td, th { padding:.2rem .5rem; text-align:left; border-bottom:1px solid #232b36; }
+  td.n, th.n { text-align:right; font-variant-numeric:tabular-nums; }
+  a { color:#6cb6ff; }
+</style>
+</head>
+<body>
+<p><a href="/">← dashboard</a></p>
+<h1>CPU flame graph — PID4043</h1>
+<p>728 samples with stacks of 728 execution samples · width ∝ samples · hover a frame for counts · snapshot at 2026-11-13T17:33:33.941444197Z</p>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="620" viewBox="0 0 1200 620" font-family="ui-monospace,Menlo,Consolas,monospace" font-size="11">
+<rect width="100%" height="100%" fill="#11151c"/>
+<text x="6" y="16" fill="#e8ecf1" font-size="13">CPU flame graph — 728 samples</text>
+<g><title>all — 728 samples (100.0%)</title><rect x="0.0" y="600" width="1199.5" height="15" fill="hsl(13,95%,53%)" rx="1"/><text x="3.0" y="612" fill="#10131a">all</text></g>
+<g><title>java.lang.Thread.run — 725 samples (99.6%)</title><rect x="0.0" y="584" width="1194.6" height="15" fill="hsl(39,92%,53%)" rx="1"/><text x="3.0" y="596" fill="#10131a">java.lang.Thread.run</text></g>
+<g><title>java.lang.Thread.runWith — 725 samples (99.6%)</title><rect x="0.0" y="568" width="1194.6" height="15" fill="hsl(49,82%,53%)" rx="1"/><text x="3.0" y="580" fill="#10131a">java.lang.Thread.runWith</text></g>
+<g><title>dev.appraan.demo.LoadApp$$Lambda.0x0000739bb8000a08.run — 708 samples (97.3%)</title><rect x="0.0" y="552" width="1166.5" height="15" fill="hsl(10,79%,58%)" rx="1"/><text x="3.0" y="564" fill="#10131a">dev.appraan.demo.LoadApp$$Lambda.0x0000739bb8000a08.run</text></g>
+<g><title>dev.appraan.demo.LoadApp.burnCpu — 708 samples (97.3%)</title><rect x="0.0" y="536" width="1166.5" height="15" fill="hsl(49,93%,65%)" rx="1"/><text x="3.0" y="548" fill="#10131a">dev.appraan.demo.LoadApp.burnCpu</text></g>
+<g><title>dev.appraan.demo.LoadApp.isPrime — 707 samples (97.1%)</title><rect x="0.0" y="520" width="1164.9" height="15" fill="hsl(13,86%,59%)" rx="1"/><text x="3.0" y="532" fill="#10131a">dev.appraan.demo.LoadApp.isPrime</text></g>
+<g><title>dev.appraan.demo.LoadApp$$Lambda.0x0000739bb8000c28.run — 17 samples (2.3%)</title><rect x="1167.0" y="552" width="27.5" height="15" fill="hsl(30,81%,59%)" rx="1"/></g>
+<g><title>dev.appraan.demo.LoadApp.churnAllocations — 17 samples (2.3%)</title><rect x="1167.0" y="536" width="27.5" height="15" fill="hsl(31,91%,52%)" rx="1"/></g>
+<g><title>java.util.ArrayList.clear — 6 samples (0.8%)</title><rect x="1167.0" y="520" width="9.4" height="15" fill="hsl(42,82%,60%)" rx="1"/></g>
+<g><title>java.util.HashMap.put — 3 samples (0.4%)</title><rect x="1176.9" y="520" width="4.4" height="15" fill="hsl(15,88%,55%)" rx="1"/></g>
+<g><title>java.util.HashMap.hash — 2 samples (0.3%)</title><rect x="1176.9" y="504" width="2.8" height="15" fill="hsl(14,81%,62%)" rx="1"/></g>
+<g><title>java.lang.String.hashCode — 2 samples (0.3%)</title><rect x="1176.9" y="488" width="2.8" height="15" fill="hsl(48,85%,57%)" rx="1"/></g>
+<g><title>java.util.HashMap.putVal — 1 samples (0.1%)</title><rect x="1180.2" y="504" width="1.1" height="15" fill="hsl(34,79%,52%)" rx="1"/></g>
+<g><title>jdk.jfr.internal.dcmd.AbstractDCmd.execute — 3 samples (0.4%)</title><rect x="1195.1" y="584" width="4.4" height="15" fill="hsl(35,94%,56%)" rx="1"/></g>
+<g><title>jdk.jfr.internal.dcmd.DCmdDump.execute — 3 samples (0.4%)</title><rect x="1195.1" y="568" width="4.4" height="15" fill="hsl(21,91%,55%)" rx="1"/></g>
+<g><title>jdk.jfr.internal.dcmd.DCmdDump.dump — 3 samples (0.4%)</title><rect x="1195.1" y="552" width="4.4" height="15" fill="hsl(36,78%,65%)" rx="1"/></g>
+<g><title>jdk.jfr.internal.dcmd.AbstractDCmd.reportOperationComplete — 1 samples (0.1%)</title><rect x="1195.1" y="536" width="1.1" height="15" fill="hsl(50,91%,53%)" rx="1"/></g>
+<g><title>jdk.jfr.internal.dcmd.AbstractDCmd.printBytes — 1 samples (0.1%)</title><rect x="1195.1" y="520" width="1.1" height="15" fill="hsl(40,91%,60%)" rx="1"/></g>
+<g><title>jdk.jfr.internal.Utils.formatBytes — 1 samples (0.1%)</title><rect x="1195.1" y="504" width="1.1" height="15" fill="hsl(39,79%,59%)" rx="1"/></g>
+<g><title>jdk.jfr.internal.Utils.formatDataAmount — 1 samples (0.1%)</title><rect x="1195.1" y="488" width="1.1" height="15" fill="hsl(14,95%,65%)" rx="1"/></g>
+<g><title>java.lang.String.format — 1 samples (0.1%)</title><rect x="1195.1" y="472" width="1.1" height="15" fill="hsl(20,89%,62%)" rx="1"/></g>
+<g><title>java.util.Formatter.format — 1 samples (0.1%)</title><rect x="1195.1" y="456" width="1.1" height="15" fill="hsl(11,91%,52%)" rx="1"/></g>
+<g><title>java.util.Formatter.format — 1 samples (0.1%)</title><rect x="1195.1" y="440" width="1.1" height="15" fill="hsl(11,91%,52%)" rx="1"/></g>
+<g><title>java.util.Formatter$FormatSpecifier.print — 1 samples (0.1%)</title><rect x="1195.1" y="424" width="1.1" height="15" fill="hsl(48,93%,55%)" rx="1"/></g>
+<g><title>java.util.Formatter$FormatSpecifier.printFloat — 1 samples (0.1%)</title><rect x="1195.1" y="408" width="1.1" height="15" fill="hsl(8,92%,61%)" rx="1"/></g>
+<g><title>java.util.Formatter$FormatSpecifier.print — 1 samples (0.1%)</title><rect x="1195.1" y="392" width="1.1" height="15" fill="hsl(48,93%,55%)" rx="1"/></g>
+<g><title>java.util.Formatter$FormatSpecifier.print — 1 samples (0.1%)</title><rect x="1195.1" y="376" width="1.1" height="15" fill="hsl(48,93%,55%)" rx="1"/></g>
+<g><title>java.util.Formatter$FormatSpecifier.localizedMagnitude — 1 samples (0.1%)</title><rect x="1195.1" y="360" width="1.1" height="15" fill="hsl(30,78%,53%)" rx="1"/></g>
+<g><title>java.util.Formatter.getZero — 1 samples (0.1%)</title><rect x="1195.1" y="344" width="1.1" height="15" fill="hsl(34,94%,54%)" rx="1"/></g>
+<g><title>java.util.Formatter.getDecimalFormatSymbols — 1 samples (0.1%)</title><rect x="1195.1" y="328" width="1.1" height="15" fill="hsl(9,81%,54%)" rx="1"/></g>
+<g><title>java.text.DecimalFormatSymbols.getInstance — 1 samples (0.1%)</title><rect x="1195.1" y="312" width="1.1" height="15" fill="hsl(17,90%,55%)" rx="1"/></g>
+<g><title>sun.util.locale.provider.LocaleProviderAdapter.getAdapter — 1 samples (0.1%)</title><rect x="1195.1" y="296" width="1.1" height="15" fill="hsl(50,87%,52%)" rx="1"/></g>
+<g><title>sun.util.locale.provider.LocaleProviderAdapter.findAdapter — 1 samples (0.1%)</title><rect x="1195.1" y="280" width="1.1" height="15" fill="hsl(33,80%,64%)" rx="1"/></g>
+<g><title>sun.util.locale.provider.LocaleProviderAdapter.forType — 1 samples (0.1%)</title><rect x="1195.1" y="264" width="1.1" height="15" fill="hsl(26,90%,53%)" rx="1"/></g>
+<g><title>java.lang.reflect.Constructor.newInstance — 1 samples (0.1%)</title><rect x="1195.1" y="248" width="1.1" height="15" fill="hsl(20,88%,60%)" rx="1"/></g>
+<g><title>java.lang.reflect.Constructor.newInstanceWithCaller — 1 samples (0.1%)</title><rect x="1195.1" y="232" width="1.1" height="15" fill="hsl(13,89%,55%)" rx="1"/></g>
+<g><title>jdk.internal.reflect.DirectConstructorHandleAccessor.newInstance — 1 samples (0.1%)</title><rect x="1195.1" y="216" width="1.1" height="15" fill="hsl(34,92%,52%)" rx="1"/></g>
+<g><title>jdk.internal.reflect.DirectConstructorHandleAccessor.invokeImpl — 1 samples (0.1%)</title><rect x="1195.1" y="200" width="1.1" height="15" fill="hsl(19,80%,62%)" rx="1"/></g>
+<g><title>java.lang.invoke.Invokers$Holder.invokeExact_MT — 1 samples (0.1%)</title><rect x="1195.1" y="184" width="1.1" height="15" fill="hsl(16,85%,59%)" rx="1"/></g>
+<g><title>java.lang.invoke.DirectMethodHandle$Holder.newInvokeSpecial — 1 samples (0.1%)</title><rect x="1195.1" y="168" width="1.1" height="15" fill="hsl(39,84%,58%)" rx="1"/></g>
+<g><title>sun.util.cldr.CLDRLocaleProviderAdapter.&lt;init&gt; — 1 samples (0.1%)</title><rect x="1195.1" y="152" width="1.1" height="15" fill="hsl(12,83%,63%)" rx="1"/></g>
+<g><title>java.security.AccessController.doPrivileged — 1 samples (0.1%)</title><rect x="1195.1" y="136" width="1.1" height="15" fill="hsl(34,78%,55%)" rx="1"/></g>
+<g><title>java.security.AccessController.executePrivileged — 1 samples (0.1%)</title><rect x="1195.1" y="120" width="1.1" height="15" fill="hsl(28,78%,65%)" rx="1"/></g>
+<g><title>sun.util.cldr.CLDRLocaleProviderAdapter$$Lambda.0x800000060.run — 1 samples (0.1%)</title><rect x="1195.1" y="104" width="1.1" height="15" fill="hsl(24,93%,64%)" rx="1"/></g>
+<g><title>sun.util.cldr.CLDRLocaleProviderAdapter.lambda$new$0 — 1 samples (0.1%)</title><rect x="1195.1" y="88" width="1.1" height="15" fill="hsl(17,85%,53%)" rx="1"/></g>
+<g><title>java.util.ServiceLoader.iterator — 1 samples (0.1%)</title><rect x="1195.1" y="72" width="1.1" height="15" fill="hsl(28,84%,60%)" rx="1"/></g>
+<g><title>java.util.ServiceLoader.newLookupIterator — 1 samples (0.1%)</title><rect x="1195.1" y="56" width="1.1" height="15" fill="hsl(42,84%,64%)" rx="1"/></g>
+<g><title>java.util.ServiceLoader$ModuleServicesLookupIterator.&lt;init&gt; — 1 samples (0.1%)</title><rect x="1195.1" y="40" width="1.1" height="15" fill="hsl(14,82%,57%)" rx="1"/></g>
+<g><title>java.util.ServiceLoader$ModuleServicesLookupIterator.iteratorFor — 1 samples (0.1%)</title><rect x="1195.1" y="24" width="1.1" height="15" fill="hsl(23,92%,57%)" rx="1"/></g>
+<g><title>jdk.jfr.internal.dcmd.AbstractDCmd.resolvePath — 1 samples (0.1%)</title><rect x="1196.7" y="536" width="1.1" height="15" fill="hsl(35,91%,52%)" rx="1"/></g>
+<g><title>java.nio.file.Paths.get — 1 samples (0.1%)</title><rect x="1196.7" y="520" width="1.1" height="15" fill="hsl(10,80%,56%)" rx="1"/></g>
+<g><title>java.nio.file.Path.of — 1 samples (0.1%)</title><rect x="1196.7" y="504" width="1.1" height="15" fill="hsl(44,79%,63%)" rx="1"/></g>
+<g><title>sun.nio.fs.UnixFileSystem.getPath — 1 samples (0.1%)</title><rect x="1196.7" y="488" width="1.1" height="15" fill="hsl(17,89%,53%)" rx="1"/></g>
+<g><title>sun.nio.fs.UnixPath.&lt;init&gt; — 1 samples (0.1%)</title><rect x="1196.7" y="472" width="1.1" height="15" fill="hsl(38,92%,54%)" rx="1"/></g>
+<g><title>sun.nio.fs.UnixPath.encode — 1 samples (0.1%)</title><rect x="1196.7" y="456" width="1.1" height="15" fill="hsl(34,92%,54%)" rx="1"/></g>
+<g><title>java.lang.System$2.getBytesNoRepl — 1 samples (0.1%)</title><rect x="1196.7" y="440" width="1.1" height="15" fill="hsl(34,81%,65%)" rx="1"/></g>
+<g><title>java.lang.String.getBytesNoRepl — 1 samples (0.1%)</title><rect x="1196.7" y="424" width="1.1" height="15" fill="hsl(34,78%,62%)" rx="1"/></g>
+<g><title>java.lang.String.getBytesNoRepl1 — 1 samples (0.1%)</title><rect x="1196.7" y="408" width="1.1" height="15" fill="hsl(35,95%,64%)" rx="1"/></g>
+<g><title>java.lang.String.isASCII — 1 samples (0.1%)</title><rect x="1196.7" y="392" width="1.1" height="15" fill="hsl(42,83%,60%)" rx="1"/></g>
+<g><title>java.lang.StringCoding.hasNegatives — 1 samples (0.1%)</title><rect x="1196.7" y="376" width="1.1" height="15" fill="hsl(51,84%,53%)" rx="1"/></g>
+<g><title>java.lang.StringCoding.countPositives — 1 samples (0.1%)</title><rect x="1196.7" y="360" width="1.1" height="15" fill="hsl(46,78%,59%)" rx="1"/></g>
+<g><title>jdk.jfr.internal.dcmd.DCmdDump.newSnapShot — 1 samples (0.1%)</title><rect x="1198.4" y="536" width="1.1" height="15" fill="hsl(16,84%,52%)" rx="1"/></g>
+<g><title>jdk.jfr.internal.PlatformRecording.newSnapshotClone — 1 samples (0.1%)</title><rect x="1198.4" y="520" width="1.1" height="15" fill="hsl(17,87%,56%)" rx="1"/></g>
+<g><title>jdk.jfr.internal.PlatformRecording.setSettings — 1 samples (0.1%)</title><rect x="1198.4" y="504" width="1.1" height="15" fill="hsl(21,89%,59%)" rx="1"/></g>
+<g><title>jdk.jfr.internal.PlatformRecording.setSettings — 1 samples (0.1%)</title><rect x="1198.4" y="488" width="1.1" height="15" fill="hsl(21,89%,59%)" rx="1"/></g>
+<g><title>jdk.jfr.internal.PlatformRecorder.updateSettings — 1 samples (0.1%)</title><rect x="1198.4" y="472" width="1.1" height="15" fill="hsl(29,88%,64%)" rx="1"/></g>
+<g><title>jdk.jfr.internal.PlatformRecorder.updateSettingsButIgnoreRecording — 1 samples (0.1%)</title><rect x="1198.4" y="456" width="1.1" height="15" fill="hsl(31,80%,60%)" rx="1"/></g>
+<g><title>jdk.jfr.internal.MetadataRepository.setSettings — 1 samples (0.1%)</title><rect x="1198.4" y="440" width="1.1" height="15" fill="hsl(24,80%,62%)" rx="1"/></g>
+<g><title>jdk.jfr.internal.SettingsManager.setSettings — 1 samples (0.1%)</title><rect x="1198.4" y="424" width="1.1" height="15" fill="hsl(41,92%,52%)" rx="1"/></g>
+<g><title>jdk.jfr.internal.SettingsManager.createSettingsMap — 1 samples (0.1%)</title><rect x="1198.4" y="408" width="1.1" height="15" fill="hsl(33,90%,53%)" rx="1"/></g>
+<g><title>jdk.jfr.internal.SettingsManager.makeInternalSettings — 1 samples (0.1%)</title><rect x="1198.4" y="392" width="1.1" height="15" fill="hsl(34,88%,62%)" rx="1"/></g>
+</svg>
+<h2>Top leaf methods (same samples as the graph)</h2>
+<table>
+<tr><th class="n">Samples</th><th class="n">%</th><th>Method</th></tr>
+<tr><td class="n">707</td><td class="n">97.1</td><td>dev.appraan.demo.LoadApp.isPrime</td></tr>
+<tr><td class="n">8</td><td class="n">1.1</td><td>dev.appraan.demo.LoadApp.churnAllocations</td></tr>
+<tr><td class="n">6</td><td class="n">0.8</td><td>java.util.ArrayList.clear</td></tr>
+<tr><td class="n">2</td><td class="n">0.3</td><td>java.lang.String.hashCode</td></tr>
+<tr><td class="n">1</td><td class="n">0.1</td><td>java.util.HashMap.putVal</td></tr>
+<tr><td class="n">1</td><td class="n">0.1</td><td>dev.appraan.demo.LoadApp.burnCpu</td></tr>
+<tr><td class="n">1</td><td class="n">0.1</td><td>java.lang.StringCoding.countPositives</td></tr>
+<tr><td class="n">1</td><td class="n">0.1</td><td>jdk.jfr.internal.SettingsManager.makeInternalSettings</td></tr>
+<tr><td class="n">1</td><td class="n">0.1</td><td>java.util.ServiceLoader$ModuleServicesLookupIterator.iteratorFor</td></tr>
+</table>
+<script>setTimeout(() => location.reload(), 15000);</script>
+</body>
+</html>

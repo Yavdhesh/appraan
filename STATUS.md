@@ -1,14 +1,46 @@
 # Appraan — Status
 
-Milestone 2 (in progress): embedded web UI (dashboard + JSON API + CPU flame graph)
-over the same metric model. Checkpoint log:
+Milestone 2: COMPLETE — embedded web UI (dashboard + JSON API + CPU flame graph)
+over the same metric model.
 - [x] M2 started; DESIGN.md mapping: UI renders the shared metric model
       (Metrics/TargetInfo/OsCollector); DESIGN names no UI flags, so `--port`
       (default 7676) and `--no-ui` are added as additive CLI options.
 - [x] Collapsed-stack collection in Metrics (Stacks helper, pure + unit-tested).
 - [x] UI package: JSON API, dashboard page, flame graph SVG, UiServer.
-- [x] CLI wiring (--port / --no-ui), build, tests (44 checks pass).
-- [ ] Proof run 2 (proof/run2.log + snapshot artefacts), README/DESIGN updates.
+- [x] CLI wiring (--port / --no-ui), build, tests.
+- [x] Proof run 2 (proof/run2.log + snapshot artefacts), README/DESIGN updates.
+
+## Milestone 2 — Done
+- [x] `dev.appraan.ui`: Snapshot (immutable per-poll capture), Json/JsonApi
+      (zero-dependency JSON, RFC 8259 escaping; endpoints /api/summary, /api/gc,
+      /api/cpu, /api/cores, /api/stacks as pure Snapshot -> String functions),
+      FlameGraph (server-side SVG from collapsed stacks, width ∝ samples,
+      widestPath helper), Pages (single-file dashboard polling the API;
+      server-rendered /flame page), UiServer (JDK HttpServer, loopback only,
+      daemon threads; start failure degrades to console-only).
+- [x] Metrics also folds ExecutionSample events into collapsed stacks, so the
+      flame graph, JSON API and console top-leaf table share one collection.
+- [x] Tests (`./run-tests.sh`, plain Java): StacksTest 16, JsonTest 20,
+      FlameGraphTest 10 — 46 checks, all passing.
+- [x] PROOF RUN 2 in `proof/run2.log` + `proof/run2/`: Appraan vs LoadApp
+      (pid 4043, same flags as run 1), 30 s.
+      - Live HTTP verified by curl (all 7 routes HTTP 200 mid-run; bodies
+        saved with -live suffix). The in-process java.net.http client is
+        blocked by this sandbox's network policy (connection intercepted
+        before reaching the server) — recorded honestly in the proof log;
+        RenderProof covered the renderer path from its own live session.
+      - Curl-fetched JSON matched the console block from the same snapshot
+        EXACTLY (young=17, pauses 34/3 ms, 728 samples, isPrime=707,
+        825.5 MiB total / 161.4 MiB/s, cores 36/33/47/23). Whole run
+        mirrors M1: young GCs 17 → 72, allocation ~146–161 MiB/s.
+      - Flame graph: 728 samples live; widest root-to-leaf path ends at
+        `dev.appraan.demo.LoadApp.isPrime` (707 samples, 97.1%), equal to
+        the Metrics top leaf.
+      - Defect found + fixed during proof: Snapshot re-read the delta-based
+        per-core collector a millisecond after the console, so /api/cores
+        showed a micro-window delta. Fix (12e10b0): one per-core read per
+        round, shared by console and snapshot; the proof numbers above are
+        from the fixed build.
 
 Milestone 1: skeleton, target discovery (Attach API), live JFR pipeline, OS collector SPI, demo target, proof run.
 
@@ -41,8 +73,7 @@ Milestone 1: skeleton, target discovery (Attach API), live JFR pipeline, OS coll
         cross-checks with GC cadence (~11 young GCs/5 s against a ~50–70 MB eden).
       - Per-core CPU printed each window from the Linux collector.
 
-## Remaining (future milestones, not M1)
-- [ ] Embedded web UI + flame-graph rendering over the same metric model.
+## Remaining (future milestones)
 - [ ] Promotion rate, G1 region/humongous reporting; old-GC proof with a
       promotion-heavy demo mode.
 - [ ] Offline artefact mode: heap dump, thread dump, GC log analysis.

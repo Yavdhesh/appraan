@@ -32,7 +32,7 @@ is not on your `PATH`.
 ```bash
 java --add-modules jdk.attach \
      --add-exports jdk.attach/sun.tools.attach=ALL-UNNAMED \
-     -jar dist/appraan.jar <PID> [--seconds N] [--interval S]
+     -jar dist/appraan.jar <PID> [--seconds N] [--interval S] [--port P] [--no-ui]
 ```
 
 (Windows: same command in `cmd`/PowerShell, with `dist\appraan.jar`.)
@@ -42,11 +42,35 @@ java --add-modules jdk.attach \
   `-XX:+DisableAttachMechanism`.
 - `--seconds N` — total observation time (default 30).
 - `--interval S` — status print interval (default 5).
+- `--port P` — loopback port for the embedded web UI (default 7676;
+  0 = pick a free port). Ignored with `--no-ui`.
+- `--no-ui` — disable the embedded web UI (console output only).
 - The `--add-exports` flag is needed because `executeJCmd` lives in the
   non-exported `sun.tools.attach` package of the `jdk.attach` module.
 
-No TCP/JMX is used: discovery and JFR control go through the local Attach API,
-and JFR snapshots are parsed from local files.
+No TCP/JMX is used to talk to the target: discovery and JFR control go through
+the local Attach API, and JFR snapshots are parsed from local files. The only
+TCP listener Appraan opens is its own web UI, bound to loopback.
+
+## Web UI
+
+While Appraan runs, open **http://127.0.0.1:7676/** in a browser:
+
+- `/` — a single-page dashboard (self-contained: no external assets) with the
+  target's discovery summary, live GC counts and pauses, allocation rate,
+  CPU top leaf methods, and per-core CPU. It refreshes every 2 s.
+- `/flame` — a server-rendered CPU **flame graph** (SVG; width ∝ sample
+  share, hover a frame for counts) built from the same JFR execution
+  samples, with the top-leaf table beside it.
+- JSON API backing the pages, for scripting: `/api/summary`, `/api/gc`,
+  `/api/cpu`, `/api/cores`, `/api/stacks` (collapsed stacks).
+
+The UI renders immutable snapshots of the same metric model the console
+prints — after every poll the console block and the UI publish identical
+numbers (verified in `proof/run2.log`). The UI binds to the loopback
+interface only: it exposes live internals of the observed process, so it
+is deliberately not reachable from other machines. If the port is taken,
+Appraan warns and continues with console output only.
 
 ## Try it against the bundled demo app
 
@@ -80,13 +104,20 @@ CPU:   689 execution samples total (+689 this window)  top leaf methods:
 Cores: [0]=6% [1]=6% [2]=5% [3]=5%
 ```
 
-## Milestone 1 scope
+## Scope so far
 
-Working: PID attach + target discovery, live JFR pipeline (GC counts/pauses,
-allocation rate with a documented fallback chain, CPU sample top methods),
-per-core CPU on Linux via the OS-collector SPI, console status output, demo app.
+Milestone 1 — working: PID attach + target discovery, live JFR pipeline
+(GC counts/pauses, allocation rate with a documented fallback chain, CPU
+sample top methods), per-core CPU on Linux via the OS-collector SPI,
+console status output, demo app.
 
-Stubbed / later: embedded web UI and flame-graph rendering, Windows per-core CPU
-beyond the MXBean approximation, eBPF (Linux) and ETW / eBPF-for-Windows
-(Windows) kernel collectors, heap/thread dump and GC-log offline analysis,
-promotion rate and G1 region/humongous reporting.
+Milestone 2 — working: the embedded web UI described above (dashboard,
+JSON API, CPU flame graph), fed by collapsed stacks collected alongside
+the M1 leaf counts. Manual tests: `./run-tests.sh` (stack collapsing,
+JSON escaping, flame-graph geometry — plain Java, no framework).
+Proof: `proof/run2.log` + `proof/run2/` artefacts.
+
+Stubbed / later: Windows per-core CPU beyond the MXBean approximation,
+eBPF (Linux) and ETW / eBPF-for-Windows (Windows) kernel collectors,
+heap/thread dump and GC-log offline analysis, promotion rate and G1
+region/humongous reporting.
