@@ -1,0 +1,4 @@
+build/
+dist/
+*.jfr
+proof/loadapp.log
