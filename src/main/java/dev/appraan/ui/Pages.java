@@ -223,9 +223,20 @@ public final class Pages {
                       fetch('/api/cores').then(r => r.json()),
                       fetch('/api/kernel').then(r => r.json())]);
                     $('err').textContent = '';
-                    const ageSec = (Date.now() - Date.parse(summary.capturedAt)) / 1000;
+                    const capMs = Date.parse(summary.capturedAt);
+                    const ageSec = (Date.now() - capMs) / 1000;
+                    // LIVE/STALE is judged against the observer's own capture
+                    // cadence (learned from successive snapshots; the default
+                    // interval is 5s), not a fixed 3s: a healthy observer must
+                    // not flap STALE between its own snapshots. STALE means
+                    // roughly 2.5 missed captures.
+                    if (window._lastCapMs && capMs > window._lastCapMs) {
+                      window._cadenceSec = (capMs - window._lastCapMs) / 1000;
+                    }
+                    if (capMs !== window._lastCapMs) window._lastCapMs = capMs;
+                    const staleAfterSec = Math.max(6, (window._cadenceSec || 5) * 2.5);
                     const dot = $('live-dot');
-                    if (ageSec < 3) { dot.className = 'live-dot on'; $('live-text').textContent = 'LIVE'; }
+                    if (ageSec < staleAfterSec) { dot.className = 'live-dot on'; $('live-text').textContent = 'LIVE'; }
                     else { dot.className = 'live-dot stale'; $('live-text').textContent = 'STALE'; }
                     $('updated').textContent = new Date(summary.capturedAt).toLocaleTimeString()
                       + (ageSec >= 1 ? ' (' + Math.floor(ageSec) + 's ago)' : '');
