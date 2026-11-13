@@ -112,6 +112,7 @@ public final class Appraan {
         long totalNanos = Duration.ofSeconds(options.seconds()).toNanos();
         long prevAllocBytes = 0;
         long prevYoungGc = 0;
+        long prevPromotionBytes = 0;
         long prevSamples = 0;
         Instant prevWall = Instant.now();
 
@@ -123,7 +124,13 @@ public final class Appraan {
             if (sleepMs > 0) {
                 Thread.sleep(sleepMs);
             }
-            jfr.pollOnce();
+            try {
+                jfr.pollOnce();
+            } catch (IOException e) {
+                System.out.println("\nTarget JVM exited during observation — ending early. ("
+                        + e.getMessage() + ")");
+                break;
+            }
             round++;
 
             Instant wallNow = Instant.now();
@@ -139,6 +146,21 @@ public final class Appraan {
                     Metrics.formatDuration(metrics.totalPause()),
                     Metrics.formatDuration(metrics.maxPause()),
                     metrics.sinceLastGc(jfr.watermark()));
+            var g1 = metrics.g1();
+            if (g1.available()) {
+                System.out.printf("G1:    eden=%s  survivor=%s  old=%s  regions=%d  |  promotion(est.) %s total (+%s this window, %d young GCs)  |  humongous: %d regions, %s used%n",
+                        Metrics.formatBytes(g1.edenUsedBytes()),
+                        Metrics.formatBytes(g1.survivorUsedBytes()),
+                        Metrics.formatBytes(g1.oldUsedBytes()),
+                        g1.regionCount(),
+                        Metrics.formatBytes(g1.promotionBytes()),
+                        Metrics.formatBytes(g1.promotionBytes() - prevPromotionBytes),
+                        g1.promotionGcCount(),
+                        g1.humongousRegionCount(),
+                        Metrics.formatBytes(g1.humongousUsedBytes()));
+            } else {
+                System.out.println("G1:    n/a (target is not running the G1 collector)");
+            }
             System.out.printf("Alloc: rate=%s/s  total=%s  |  heap used (latest JFR)=%s  |  source: %s%n",
                     Metrics.formatBytes((long) allocRate),
                     Metrics.formatBytes(allocBytes),
@@ -170,6 +192,7 @@ public final class Appraan {
 
             prevAllocBytes = allocBytes;
             prevYoungGc = metrics.youngGcCount();
+            prevPromotionBytes = metrics.g1().promotionBytes();
             prevSamples = metrics.executionSamples();
             prevWall = wallNow;
         }

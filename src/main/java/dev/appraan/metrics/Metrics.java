@@ -55,6 +55,9 @@ public final class Metrics {
     private final Map<String, Long> leafMethodCounts = new HashMap<>();
     private final Map<String, Long> collapsedStacks = new HashMap<>();
 
+    // G1 (promotion estimate, region census, humongous) — see G1Stats
+    private final G1Stats g1 = new G1Stats();
+
     public void onEvent(RecordedEvent e) {
         String type = e.getEventType().getName();
         switch (type) {
@@ -63,12 +66,14 @@ public final class Metrics {
                     youngGcCount++;
                     lastYoungGcEnd = e.getEndTime();
                 }
+                g1.onYoungGc(safeGcId(e));
             }
             case "jdk.OldGarbageCollection" -> {
                 if (seenGcEvents.add(type + "@" + e.getStartTime())) {
                     oldGcCount++;
                     lastOldGcEnd = e.getEndTime();
                 }
+                g1.onOldGc(safeGcId(e));
             }
             case "jdk.GarbageCollection" -> {
                 // Deduped by gcId: these events bypass the dump watermark filter
@@ -100,6 +105,8 @@ public final class Metrics {
                 }
             }
             case "jdk.GCHeapSummary" -> onHeapSummary(e);
+            case "jdk.G1HeapSummary" -> onG1HeapSummary(e);
+            case "jdk.G1HeapRegionInformation" -> onG1RegionInfo(e);
             case "jdk.ExecutionSample" -> onExecutionSample(e);
             default -> {
                 // All other event types are ignored in Milestone 1.
@@ -117,6 +124,33 @@ public final class Metrics {
             }
         } else if ("After GC".equals(when)) {
             lastAfterGcHeapUsed = used;
+        }
+    }
+
+    private void onG1HeapSummary(RecordedEvent e) {
+        try {
+            g1.onHeapSummary(e.getLong("gcId"), e.getString("when"),
+                    e.getLong("edenUsedSize"), e.getLong("survivorUsedSize"),
+                    e.getLong("oldGenUsedSize"), e.getLong("numberOfRegions"));
+        } catch (Exception ignored) {
+            // A G1 summary without the expected fields must never break the poll.
+        }
+    }
+
+    private void onG1RegionInfo(RecordedEvent e) {
+        try {
+            g1.onRegionInfo(e.getStartTime(), (int) e.getLong("index"),
+                    e.getString("type"), e.getLong("used"));
+        } catch (Exception ignored) {
+            // As above: region detail is best-effort.
+        }
+    }
+
+    private static long safeGcId(RecordedEvent e) {
+        try {
+            return e.getLong("gcId");
+        } catch (Exception ex) {
+            return -1L;
         }
     }
 
@@ -236,6 +270,11 @@ public final class Metrics {
 
     public long lastHeapUsed() {
         return lastHeapUsed;
+    }
+
+    /** G1 aggregates (promotion estimate, region census). Never null. */
+    public G1Stats g1() {
+        return g1;
     }
 
     /** Time between {@code now} (use the newest event time seen) and the last GC of each kind. */

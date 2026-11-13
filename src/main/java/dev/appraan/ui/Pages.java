@@ -61,6 +61,9 @@ public final class Pages {
                       <tr><th>Pause max</th><td class="n" id="gc-pause-max">…</td></tr>
                       <tr><th>Last young GC</th><td class="n" id="gc-since-young">…</td></tr>
                       <tr><th>Last old GC</th><td class="n" id="gc-since-old">…</td></tr>
+                      <tr><th>Promotion (est., G1)</th><td class="n" id="gc-promotion">…</td></tr>
+                      <tr><th>G1 eden / survivor / old</th><td class="n" id="g1-split">…</td></tr>
+                      <tr><th>Humongous regions</th><td class="n" id="g1-humongous">…</td></tr>
                     </table>
                   </section>
                   <section class="card"><h2>Allocation</h2>
@@ -124,6 +127,16 @@ public final class Pages {
                     $('gc-pause-max').textContent = gc.pauses.maxMs + ' ms';
                     $('gc-since-young').textContent = gc.young.sinceLast;
                     $('gc-since-old').textContent = gc.old.sinceLast;
+                    $('gc-promotion').textContent = gc.g1.available
+                      ? fmtBytes(gc.promotion.bytes) + ' over ' + gc.promotion.gcCount + ' young GCs'
+                      : 'n/a (non-G1 collector)';
+                    $('g1-split').textContent = gc.g1.available
+                      ? fmtBytes(gc.g1.edenUsedBytes) + ' / ' + fmtBytes(gc.g1.survivorUsedBytes)
+                        + ' / ' + fmtBytes(gc.g1.oldUsedBytes) + ' · ' + gc.g1.regions + ' regions'
+                      : 'n/a (non-G1 collector)';
+                    $('g1-humongous').textContent = gc.g1.available
+                      ? gc.g1.humongous.regions + ' regions, ' + fmtBytes(gc.g1.humongous.usedBytes) + ' used'
+                      : 'n/a (non-G1 collector)';
                     $('alloc-rate').textContent = fmtBytes(summary.allocation.rateBytesPerSec) + '/s';
                     $('alloc-total').textContent = fmtBytes(summary.allocation.totalBytes);
                     $('alloc-heap').textContent = fmtBytes(summary.allocation.heapUsedBytes);

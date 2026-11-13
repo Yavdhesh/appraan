@@ -1,0 +1,93 @@
+=== Appraan: observing PID 5237 ===
+Target JVM
+  pid:            5237
+  version:        OpenJDK 64-Bit Server VM version 21.0.13+9-LTS
+  GC collector:   G1
+  flag UseG1GC = true
+  flag InitialHeapSize = 124 MiB (130023424)
+  flag MaxHeapSize = 256 MiB (268435456)
+  flag MinHeapSize = 8 MiB (8388608)
+  flag MaxNewSize = 153 MiB (160432128)
+  flag G1HeapRegionSize = 1 MiB (1048576)
+  flag UseCompressedOops = true
+  command line:
+    jvm_args: -Xmx256m -XX:+UseG1GC
+    java_command: PromoLong
+    java_class_path (initial): /tmp/probe
+    Launcher Type: SUN_STANDARD
+  heap info:
+    garbage-first heap   total 144384K, used 64404K [0x00000000f0000000, 0x0000000100000000)
+    region size 1024K, 24 young (24576K), 7 survivors (7168K)
+    Metaspace       used 84K, committed 320K, reserved 1114112K
+    class space    used 5K, committed 128K, reserved 1048576K
+OS collector: linux-/proc
+Observing for 30s, status every 5s. Ctrl-C to stop early.
+
+Web UI: http://127.0.0.1:17677/  (flame graph: http://127.0.0.1:17677/flame)
+JFR recording started in target: Started recording 1. No limit specified, using maxsize=250MB as default.
+--- t=+5s ------------------------------------------------------
+GC:    young=24 (+24)  old=9  |  pause total=63ms  max=7ms  |  last GC young: 349ms ago, old: 797ms ago
+G1:    eden=0 B  survivor=7.0 MiB  old=72.5 MiB  regions=177  |  promotion(est.) 43.3 MiB total (+43.3 MiB this window, 24 young GCs)  |  humongous: 75 regions, 75.0 MiB used
+Alloc: rate=197.7 MiB/s  total=1005.4 MiB  |  heap used (latest JFR)=79.5 MiB  |  source: jdk.ObjectAllocationSample weight (2162 sampled events)
+CPU:   4 execution samples total (+4 this window)  top leaf methods:
+              1  java.util.ArrayList.subList
+              1  jdk.internal.org.objectweb.asm.ByteVector.putUTF8
+              1  jdk.jfr.internal.EventInstrumentation.getMethodNode
+              1  PromoLong.main
+Cores: [0]=12% [1]=13% [2]=14% [3]=12%
+--- t=+10s ------------------------------------------------------
+GC:    young=44 (+20)  old=16  |  pause total=128ms  max=7ms  |  last GC young: 78ms ago, old: 68ms ago
+G1:    eden=0 B  survivor=3.9 MiB  old=93.5 MiB  regions=164  |  promotion(est.) 77.0 MiB total (+33.7 MiB this window, 44 young GCs)  |  humongous: 27 regions, 27.0 MiB used
+Alloc: rate=190.8 MiB/s  total=1.9 GiB  |  heap used (latest JFR)=142.0 MiB  |  source: jdk.ObjectAllocationSample weight (3686 sampled events)
+CPU:   5 execution samples total (+1 this window)  top leaf methods:
+              2  java.util.ArrayList.subList
+              1  jdk.internal.org.objectweb.asm.ByteVector.putUTF8
+              1  jdk.jfr.internal.EventInstrumentation.getMethodNode
+              1  PromoLong.main
+Cores: [0]=8% [1]=9% [2]=6% [3]=7%
+--- t=+15s ------------------------------------------------------
+GC:    young=60 (+16)  old=21  |  pause total=176ms  max=7ms  |  last GC young: 353ms ago, old: 800ms ago
+G1:    eden=0 B  survivor=8.0 MiB  old=67.0 MiB  regions=160  |  promotion(est.) 102.1 MiB total (+25.1 MiB this window, 60 young GCs)  |  humongous: 72 regions, 72.0 MiB used
+Alloc: rate=191.3 MiB/s  total=2.9 GiB  |  heap used (latest JFR)=75.0 MiB  |  source: jdk.ObjectAllocationSample weight (5186 sampled events)
+CPU:   10 execution samples total (+5 this window)  top leaf methods:
+              6  java.util.ArrayList.subList
+              1  jdk.internal.org.objectweb.asm.ByteVector.putUTF8
+              1  jdk.jfr.internal.EventInstrumentation.getMethodNode
+              1  PromoLong.main
+              1  jdk.jfr.internal.SettingsManager.createSettingsMap
+Cores: [0]=14% [1]=14% [2]=13% [3]=11%
+--- t=+20s ------------------------------------------------------
+GC:    young=78 (+18)  old=27  |  pause total=234ms  max=7ms  |  last GC young: 344ms ago, old: 839ms ago
+G1:    eden=0 B  survivor=8.0 MiB  old=69.8 MiB  regions=157  |  promotion(est.) 131.9 MiB total (+29.8 MiB this window, 78 young GCs)  |  humongous: 78 regions, 78.0 MiB used
+Alloc: rate=192.0 MiB/s  total=3.8 GiB  |  heap used (latest JFR)=77.8 MiB  |  source: jdk.ObjectAllocationSample weight (6691 sampled events)
+CPU:   11 execution samples total (+1 this window)  top leaf methods:
+              7  java.util.ArrayList.subList
+              1  jdk.internal.org.objectweb.asm.ByteVector.putUTF8
+              1  jdk.jfr.internal.EventInstrumentation.getMethodNode
+              1  PromoLong.main
+              1  jdk.jfr.internal.SettingsManager.createSettingsMap
+Cores: [0]=11% [1]=8% [2]=6% [3]=8%
+--- t=+25s ------------------------------------------------------
+GC:    young=98 (+20)  old=34  |  pause total=310ms  max=11ms  |  last GC young: 142ms ago, old: 132ms ago
+G1:    eden=0 B  survivor=3.5 MiB  old=38.1 MiB  regions=144  |  promotion(est.) 165.6 MiB total (+33.6 MiB this window, 98 young GCs)  |  humongous: 42 regions, 42.0 MiB used
+Alloc: rate=191.9 MiB/s  total=4.8 GiB  |  heap used (latest JFR)=41.6 MiB  |  source: jdk.ObjectAllocationSample weight (8187 sampled events)
+CPU:   14 execution samples total (+3 this window)  top leaf methods:
+              9  java.util.ArrayList.subList
+              2  jdk.jfr.internal.SettingsManager.createSettingsMap
+              1  jdk.internal.org.objectweb.asm.ByteVector.putUTF8
+              1  jdk.jfr.internal.EventInstrumentation.getMethodNode
+              1  PromoLong.main
+Cores: [0]=9% [1]=5% [2]=6% [3]=7%
+--- t=+30s ------------------------------------------------------
+GC:    young=116 (+18)  old=40  |  pause total=363ms  max=11ms  |  last GC young: 69ms ago, old: 59ms ago
+G1:    eden=0 B  survivor=2.7 MiB  old=96.8 MiB  regions=157  |  promotion(est.) 194.7 MiB total (+29.1 MiB this window, 116 young GCs)  |  humongous: 39 regions, 39.0 MiB used
+Alloc: rate=192.8 MiB/s  total=5.7 GiB  |  heap used (latest JFR)=99.5 MiB  |  source: jdk.ObjectAllocationSample weight (9570 sampled events)
+CPU:   16 execution samples total (+2 this window)  top leaf methods:
+             10  java.util.ArrayList.subList
+              2  jdk.jfr.internal.SettingsManager.createSettingsMap
+              1  jdk.internal.org.objectweb.asm.ByteVector.putUTF8
+              1  java.util.Arrays.copyOf
+              1  jdk.jfr.internal.EventInstrumentation.getMethodNode
+Cores: [0]=10% [1]=6% [2]=7% [3]=9%
+
+JFR recording 'appraan' stopped in target; detached.

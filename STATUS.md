@@ -1,5 +1,41 @@
 # Appraan — Status
 
+Milestone 3a: COMPLETE — G1 promotion estimate, region census with humongous
+reporting, old-GC proof via a promotion-heavy demo mode, and graceful
+target-exit handling. Milestone 2 (embedded web UI) remains as below.
+- [x] `dev.appraan.metrics.G1Stats` (pure, unit-tested): promotion estimate
+      from `jdk.G1HeapSummary` old-gen growth during young GCs only;
+      eden/survivor/old + region count from the latest After-GC summary;
+      region census from `jdk.G1HeapRegionInformation` (enabled explicitly
+      in the JFR recording), humongous = Starts/Continues Humongous regions.
+      All state keyed by gcId / region index, so re-fed dump events cannot
+      double count (tested).
+- [x] Wiring: Metrics folds the new events in; console prints a `G1:` line
+      (total + per-window promotion); `/api/gc` gains `promotion` + `g1`
+      (incl. per-type census and `regionCensusAt`); dashboard GC card shows
+      promotion, G1 split and humongous. Non-G1 targets report `n/a`.
+- [x] `LoadApp promote` mode: retains a trickle of medium objects to force
+      promotion and old GCs (default demo behaviour unchanged).
+- [x] Defect found by proof and fixed: a target exiting mid-observation
+      crashed Appraan with a bare `FileNotFoundException` (attach socket
+      gone). It now ends early with a clear message and exit 0.
+- [x] Tests: 72 plain-Java checks passing (46 existing + 26 G1StatsTest).
+- [x] PROOF RUN 3 in `proof/run3/` (Temurin 21.0.13, G1, 256 MB heap):
+      - vs a promotion/humongous workload (30 s, `appraan3.log`): young
+        116, **old 40** (first old-GC proof; M1/M2 only ever showed old=0),
+        promotion(est.) 43.3 → 194.7 MiB over 116 young GCs (~+30 MiB/5 s
+        window), humongous census 27–78 regions tracking the workload.
+      - vs shipped `LoadApp promote` (25 s, `appraan-promote.log`): young
+        177, old 20, promotion 122.4 → 442.5 MiB; humongous correctly 0
+        (16 KiB objects). Live `/api/gc` matched the console block of its
+        snapshot exactly (promotion 217,401,888 B = 207.3 MiB, old
+        44.4 MiB, 156 regions, census sums to the region count).
+      - Humongous cross-check (live JSON at ~14 s): 9 Starts + 18 Continues
+        = 27 regions, 27.0 MiB used — exactly the nine 2 MiB arrays
+        (3 × 1 MiB regions each) the workload had retained at that moment.
+      - Target-exit run (`appraan4.log`): 12 s target, 30 s observation —
+        Appraan ended early with a clear message, exit 0.
+
 Milestone 2: COMPLETE — embedded web UI (dashboard + JSON API + CPU flame graph)
 over the same metric model.
 - [x] M2 started; DESIGN.md mapping: UI renders the shared metric model
@@ -74,8 +110,6 @@ Milestone 1: skeleton, target discovery (Attach API), live JFR pipeline, OS coll
       - Per-core CPU printed each window from the Linux collector.
 
 ## Remaining (future milestones)
-- [ ] Promotion rate, G1 region/humongous reporting; old-GC proof with a
-      promotion-heavy demo mode.
 - [ ] Offline artefact mode: heap dump, thread dump, GC log analysis.
 - [ ] Kernel collectors: Linux eBPF sidecars; Windows ETW / eBPF-for-Windows —
       per the parity contract in DESIGN.md ("kernel operations by category, with

@@ -104,6 +104,15 @@ CPU:   689 execution samples total (+689 this window)  top leaf methods:
 Cores: [0]=6% [1]=6% [2]=5% [3]=5%
 ```
 
+Since Milestone 3a, each block also carries a `G1:` line — promotion
+estimate, G1 region split and humongous usage (sample from
+`proof/run3/appraan-promote.log`, `LoadApp promote` mode):
+
+```
+GC:    young=53 (+53)  old=5  |  pause total=117ms  max=12ms  |  last GC young: 182ms ago, old: 586ms ago
+G1:    eden=0 B  survivor=5.0 MiB  old=39.3 MiB  regions=134  |  promotion(est.) 122.4 MiB total (+122.4 MiB this window, 53 young GCs)  |  humongous: 0 regions, 0 B used
+```
+
 ## Scope so far
 
 Milestone 1 — working: PID attach + target discovery, live JFR pipeline
@@ -117,7 +126,13 @@ the M1 leaf counts. Manual tests: `./run-tests.sh` (stack collapsing,
 JSON escaping, flame-graph geometry — plain Java, no framework).
 Proof: `proof/run2.log` + `proof/run2/` artefacts.
 
+Milestone 3a — working: G1 promotion estimate (old-gen growth during young
+GCs, from `G1HeapSummary`), G1 eden/survivor/old + region census with
+humongous-region reporting (`G1HeapRegionInformation`), in the console
+`G1:` line, `/api/gc` and the dashboard GC card; non-G1 targets report
+`n/a`. `LoadApp promote` demo mode forces promotion and old GCs.
+Proof: `proof/run3/` artefacts (first old-GC proof: old=40 in 30 s).
+
 Stubbed / later: Windows per-core CPU beyond the MXBean approximation,
 eBPF (Linux) and ETW / eBPF-for-Windows (Windows) kernel collectors,
-heap/thread dump and GC-log offline analysis, promotion rate and G1
-region/humongous reporting.
+heap/thread dump and GC-log offline analysis.

@@ -1,0 +1,40 @@
+=== Appraan: observing PID 5383 ===
+Target JVM
+  pid:            5383
+  version:        OpenJDK 64-Bit Server VM version 21.0.13+9-LTS
+  GC collector:   G1
+  flag UseG1GC = true
+  flag InitialHeapSize = 124 MiB (130023424)
+  flag MaxHeapSize = 256 MiB (268435456)
+  flag MinHeapSize = 8 MiB (8388608)
+  flag MaxNewSize = 153 MiB (160432128)
+  flag G1HeapRegionSize = 1 MiB (1048576)
+  flag UseCompressedOops = true
+  command line:
+    jvm_args: -Xmx256m -XX:+UseG1GC
+    java_command: Promo
+    java_class_path (initial): /tmp/probe
+    Launcher Type: SUN_STANDARD
+  heap info:
+    garbage-first heap   total 145408K, used 64531K [0x00000000f0000000, 0x0000000100000000)
+    region size 1024K, 24 young (24576K), 7 survivors (7168K)
+    Metaspace       used 85K, committed 320K, reserved 1114112K
+    class space    used 6K, committed 128K, reserved 1048576K
+OS collector: linux-/proc
+Observing for 30s, status every 5s. Ctrl-C to stop early.
+
+Web UI: http://127.0.0.1:17678/  (flame graph: http://127.0.0.1:17678/flame)
+JFR recording started in target: Started recording 1. No limit specified, using maxsize=250MB as default.
+--- t=+5s ------------------------------------------------------
+GC:    young=21 (+21)  old=8  |  pause total=71ms  max=10ms  |  last GC young: 125ms ago, old: 114ms ago
+G1:    eden=0 B  survivor=5.0 MiB  old=107.1 MiB  regions=197  |  promotion(est.) 44.1 MiB total (+44.1 MiB this window, 21 young GCs)  |  humongous: 30 regions, 30.0 MiB used
+Alloc: rate=198.4 MiB/s  total=1015.2 MiB  |  heap used (latest JFR)=112.1 MiB  |  source: jdk.ObjectAllocationSample weight (2174 sampled events)
+CPU:   3 execution samples total (+3 this window)  top leaf methods:
+              1  jdk.internal.org.objectweb.asm.ClassReader.readMethod
+              1  Promo.main
+              1  java.util.ImmutableCollections$SetN.probe
+Cores: [0]=14% [1]=14% [2]=15% [3]=17%
+
+Target JVM exited during observation ? ending early. (JFR dump failed ? the target JVM may have exited (null))
+
+JFR recording 'appraan' stopped in target; detached.

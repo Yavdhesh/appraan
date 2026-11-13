@@ -1,6 +1,7 @@
 package dev.appraan.ui;
 
 import dev.appraan.discover.TargetInfo;
+import dev.appraan.metrics.G1Stats;
 import dev.appraan.metrics.Metrics;
 import dev.appraan.os.OsCollector;
 
@@ -39,7 +40,18 @@ public record Snapshot(
         String osCollectorName,
         double[] coreBusyPercent,
         double elapsedSeconds,
-        Instant capturedAt) {
+        Instant capturedAt,
+        boolean g1Available,
+        long promotionBytes,
+        long promotionGcCount,
+        long g1EdenUsedBytes,
+        long g1SurvivorUsedBytes,
+        long g1OldUsedBytes,
+        long g1RegionCount,
+        long humongousRegionCount,
+        long humongousUsedBytes,
+        Map<String, long[]> regionTypeCensus,
+        Instant regionCensusAt) {
 
     /** How many leaf methods the dashboard / flame page tables show. */
     public static final int TOP_LEAF_LIMIT = 15;
@@ -62,6 +74,9 @@ public record Snapshot(
     public static Snapshot capture(TargetInfo info, Metrics metrics, OsCollector os,
                                    Instant eventClockNow, double allocRateBytesPerSec,
                                    double elapsedSeconds, double[] coreBusyPercent) {
+        G1Stats g1 = metrics.g1();
+        Map<String, long[]> census = new java.util.TreeMap<>();
+        g1.regionCensus().forEach((type, agg) -> census.put(type, agg.clone()));
         return new Snapshot(
                 info.pid(),
                 info.versionLine(),
@@ -86,7 +101,18 @@ public record Snapshot(
                 os.name(),
                 coreBusyPercent.clone(),
                 elapsedSeconds,
-                Instant.now());
+                Instant.now(),
+                g1.available(),
+                g1.promotionBytes(),
+                g1.promotionGcCount(),
+                g1.edenUsedBytes(),
+                g1.survivorUsedBytes(),
+                g1.oldUsedBytes(),
+                g1.regionCount(),
+                g1.humongousRegionCount(),
+                g1.humongousUsedBytes(),
+                census,
+                g1.censusUpdatedAt());
     }
 
     private static String since(Instant last, Instant now) {

@@ -35,8 +35,13 @@ public final class JsonApi {
                 .toString();
     }
 
-    /** {@code GET /api/gc} — GC counts, pauses, recency. */
+    /** {@code GET /api/gc} — GC counts, pauses, recency, G1 promotion + regions. */
     public static String gc(Snapshot s) {
+        Json.Obj census = Json.obj();
+        s.regionTypeCensus().forEach((type, agg) -> census.putRaw(type, Json.obj()
+                .put("regions", agg[0])
+                .put("usedBytes", agg[1])
+                .toString()));
         return Json.obj()
                 .putRaw("young", Json.obj()
                         .put("count", s.youngGcCount())
@@ -49,6 +54,25 @@ public final class JsonApi {
                 .putRaw("pauses", Json.obj()
                         .put("totalMs", s.totalPauseMs())
                         .put("maxMs", s.maxPauseMs())
+                        .toString())
+                .putRaw("promotion", Json.obj()
+                        .put("bytes", s.promotionBytes())
+                        .put("gcCount", s.promotionGcCount())
+                        .put("basis", "G1HeapSummary old-gen growth during young GCs (estimate)")
+                        .toString())
+                .putRaw("g1", Json.obj()
+                        .put("available", s.g1Available())
+                        .put("edenUsedBytes", s.g1EdenUsedBytes())
+                        .put("survivorUsedBytes", s.g1SurvivorUsedBytes())
+                        .put("oldUsedBytes", s.g1OldUsedBytes())
+                        .put("regions", s.g1RegionCount())
+                        .putRaw("humongous", Json.obj()
+                                .put("regions", s.humongousRegionCount())
+                                .put("usedBytes", s.humongousUsedBytes())
+                                .toString())
+                        .putRaw("regionTypes", census.toString())
+                        .put("regionCensusAt", s.regionCensusAt() == null
+                                ? null : String.valueOf(s.regionCensusAt()))
                         .toString())
                 .toString();
     }

@@ -45,7 +45,8 @@ public final class LiveJfr implements AutoCloseable {
         } catch (Exception ignored) {
             // expected when no such recording exists
         }
-        String out = target.jcmd("JFR.start name=" + RECORDING_NAME + " settings=profile disk=true");
+        String out = target.jcmd("JFR.start name=" + RECORDING_NAME
+                + " settings=profile disk=true jdk.G1HeapRegionInformation#enabled=true");
         running = true;
         System.out.println("JFR recording started in target: " + firstLine(out));
     }
@@ -53,7 +54,17 @@ public final class LiveJfr implements AutoCloseable {
     /** Dumps a snapshot of the target recording and processes only new events. */
     public void pollOnce() throws IOException {
         Path snapshot = dumpDir.resolve("snapshot-" + (++dumpSeq) + ".jfr");
-        target.jcmd("JFR.dump name=" + RECORDING_NAME + " filename=" + snapshot.toAbsolutePath());
+        try {
+            target.jcmd("JFR.dump name=" + RECORDING_NAME + " filename=" + snapshot.toAbsolutePath());
+        } catch (IOException e) {
+            // The attach socket vanishes when the target exits; say so plainly
+            // instead of surfacing a bare FileNotFoundException.
+            throw new IOException("JFR dump failed — the target JVM may have exited ("
+                    + (e.getMessage() != null ? e.getMessage() : e.toString()) + ")", e);
+        }
+        if (!Files.exists(snapshot)) {
+            throw new IOException("JFR dump produced no snapshot file — the target JVM may have exited");
+        }
         try (RecordingFile file = new RecordingFile(snapshot)) {
             Instant maxSeen = watermark;
             while (file.hasMoreEvents()) {

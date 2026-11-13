@@ -1,0 +1,84 @@
+=== Appraan: observing PID 5532 ===
+Target JVM
+  pid:            5532
+  version:        OpenJDK 64-Bit Server VM version 21.0.13+9-LTS
+  GC collector:   G1
+  flag UseG1GC = true
+  flag InitialHeapSize = 124 MiB (130023424)
+  flag MaxHeapSize = 256 MiB (268435456)
+  flag MinHeapSize = 8 MiB (8388608)
+  flag MaxNewSize = 153 MiB (160432128)
+  flag G1HeapRegionSize = 1 MiB (1048576)
+  flag UseCompressedOops = true
+  command line:
+    jvm_args: -Xmx256m -XX:+UseG1GC
+    java_command: dev.appraan.demo.LoadApp promote
+    java_class_path (initial): dist/appraan.jar
+    Launcher Type: SUN_STANDARD
+  heap info:
+    garbage-first heap   total 129024K, used 50237K [0x00000000f0000000, 0x0000000100000000)
+    region size 1024K, 13 young (13312K), 8 survivors (8192K)
+    Metaspace       used 426K, committed 576K, reserved 1114112K
+    class space    used 33K, committed 128K, reserved 1048576K
+OS collector: linux-/proc
+Observing for 25s, status every 5s. Ctrl-C to stop early.
+
+Web UI: http://127.0.0.1:17679/  (flame graph: http://127.0.0.1:17679/flame)
+JFR recording started in target: Started recording 1. No limit specified, using maxsize=250MB as default.
+--- t=+5s ------------------------------------------------------
+GC:    young=53 (+53)  old=5  |  pause total=117ms  max=12ms  |  last GC young: 182ms ago, old: 586ms ago
+G1:    eden=0 B  survivor=5.0 MiB  old=39.3 MiB  regions=134  |  promotion(est.) 122.4 MiB total (+122.4 MiB this window, 53 young GCs)  |  humongous: 0 regions, 0 B used
+Alloc: rate=507.0 MiB/s  total=2.6 GiB  |  heap used (latest JFR)=117.3 MiB  |  source: jdk.ObjectAllocationSample weight (2300 sampled events)
+CPU:   703 execution samples total (+703 this window)  top leaf methods:
+            690  dev.appraan.demo.LoadApp.isPrime
+              4  dev.appraan.demo.LoadApp.churnAllocations
+              3  java.util.ArrayList.clear
+              2  dev.appraan.demo.LoadApp.burnCpu
+              1  dev.appraan.demo.LoadApp.promoteObjects
+Cores: [0]=32% [1]=36% [2]=35% [3]=41%
+--- t=+11s ------------------------------------------------------
+GC:    young=90 (+37)  old=9  |  pause total=180ms  max=12ms  |  last GC young: 156ms ago, old: 753ms ago
+G1:    eden=0 B  survivor=8.7 MiB  old=44.4 MiB  regions=156  |  promotion(est.) 207.3 MiB total (+84.9 MiB this window, 90 young GCs)  |  humongous: 0 regions, 0 B used
+Alloc: rate=522.3 MiB/s  total=5.3 GiB  |  heap used (latest JFR)=53.1 MiB  |  source: jdk.ObjectAllocationSample weight (3852 sampled events)
+CPU:   1201 execution samples total (+498 this window)  top leaf methods:
+           1184  dev.appraan.demo.LoadApp.isPrime
+              6  java.util.ArrayList.clear
+              4  dev.appraan.demo.LoadApp.churnAllocations
+              2  dev.appraan.demo.LoadApp.burnCpu
+              1  java.util.HashMap.getNode
+Cores: [0]=18% [1]=14% [2]=75% [3]=29%
+--- t=+16s ------------------------------------------------------
+GC:    young=122 (+32)  old=13  |  pause total=258ms  max=12ms  |  last GC young: 102ms ago, old: 990ms ago
+G1:    eden=0 B  survivor=8.6 MiB  old=49.3 MiB  regions=147  |  promotion(est.) 288.2 MiB total (+80.9 MiB this window, 122 young GCs)  |  humongous: 0 regions, 0 B used
+Alloc: rate=502.5 MiB/s  total=7.9 GiB  |  heap used (latest JFR)=57.9 MiB  |  source: jdk.ObjectAllocationSample weight (5415 sampled events)
+CPU:   1671 execution samples total (+470 this window)  top leaf methods:
+           1643  dev.appraan.demo.LoadApp.isPrime
+             11  java.util.ArrayList.clear
+              5  dev.appraan.demo.LoadApp.burnCpu
+              4  dev.appraan.demo.LoadApp.churnAllocations
+              3  jdk.internal.event.ThreadSleepEvent.isTurnedOn
+Cores: [0]=24% [1]=22% [2]=71% [3]=20%
+--- t=+21s ------------------------------------------------------
+GC:    young=154 (+32)  old=17  |  pause total=316ms  max=12ms  |  last GC young: 117ms ago, old: 814ms ago
+G1:    eden=0 B  survivor=9.8 MiB  old=52.4 MiB  regions=177  |  promotion(est.) 374.8 MiB total (+86.6 MiB this window, 154 young GCs)  |  humongous: 0 regions, 0 B used
+Alloc: rate=514.8 MiB/s  total=10.5 GiB  |  heap used (latest JFR)=62.3 MiB  |  source: jdk.ObjectAllocationSample weight (6969 sampled events)
+CPU:   2167 execution samples total (+496 this window)  top leaf methods:
+           2131  dev.appraan.demo.LoadApp.isPrime
+             17  java.util.ArrayList.clear
+              7  dev.appraan.demo.LoadApp.burnCpu
+              4  dev.appraan.demo.LoadApp.churnAllocations
+              3  jdk.internal.event.ThreadSleepEvent.isTurnedOn
+Cores: [0]=25% [1]=20% [2]=23% [3]=65%
+--- t=+25s ------------------------------------------------------
+GC:    young=177 (+23)  old=20  |  pause total=366ms  max=12ms  |  last GC young: 645ms ago, old: 83ms ago
+G1:    eden=0 B  survivor=9.9 MiB  old=59.7 MiB  regions=180  |  promotion(est.) 442.5 MiB total (+67.7 MiB this window, 177 young GCs)  |  humongous: 0 regions, 0 B used
+Alloc: rate=506.1 MiB/s  total=12.6 GiB  |  heap used (latest JFR)=69.5 MiB  |  source: jdk.ObjectAllocationSample weight (8222 sampled events)
+CPU:   2563 execution samples total (+396 this window)  top leaf methods:
+           2526  dev.appraan.demo.LoadApp.isPrime
+             17  java.util.ArrayList.clear
+              7  dev.appraan.demo.LoadApp.burnCpu
+              4  dev.appraan.demo.LoadApp.churnAllocations
+              4  jdk.internal.event.ThreadSleepEvent.isTurnedOn
+Cores: [0]=28% [1]=70% [2]=17% [3]=21%
+
+JFR recording 'appraan' stopped in target; detached.

@@ -11,6 +11,8 @@ import java.util.Map;
  * lock-contended pair, all on named threads. Prints its PID at startup.
  *
  * <p>Run: {@code java -Xmx256m -XX:+UseG1GC -cp dist/appraan.jar dev.appraan.demo.LoadApp}
+ * <p>Promotion mode (retains objects across young GCs to force promotion and,
+ * eventually, old GCs): {@code java -Xmx256m -XX:+UseG1GC -cp dist/appraan.jar dev.appraan.demo.LoadApp promote}
  */
 public final class LoadApp {
 
@@ -27,7 +29,12 @@ public final class LoadApp {
         Thread lockA = new Thread(() -> contend("A"), "lock-contender-a");
         Thread lockB = new Thread(() -> contend("B"), "lock-contender-b");
 
-        for (Thread t : List.of(burner, allocator, sleeper, lockA, lockB)) {
+        List<Thread> threads = new ArrayList<>(List.of(burner, allocator, sleeper, lockA, lockB));
+        if (args.length > 0 && args[0].equals("promote")) {
+            threads.add(new Thread(LoadApp::promoteObjects, "promoter"));
+        }
+
+        for (Thread t : threads) {
             t.setDaemon(false);
             t.start();
         }
@@ -75,6 +82,28 @@ public final class LoadApp {
             }
             round++;
             sleepQuietly(10);
+        }
+    }
+
+    /**
+     * Promotion pressure: allocates medium objects and retains a steady
+     * trickle of them, so objects survive young GCs, tenure to the old
+     * generation, and eventually provoke old GCs. The retained list is
+     * capped so the demo application itself does not OOM.
+     */
+    private static void promoteObjects() {
+        List<byte[]> retained = new ArrayList<>();
+        while (running) {
+            for (int i = 0; i < 500; i++) {
+                byte[] candidate = new byte[16 * 1024];
+                if (i % 25 == 0) {
+                    retained.add(candidate);
+                }
+            }
+            if (retained.size() > 3000) {
+                retained.subList(0, 1500).clear();
+            }
+            sleepQuietly(20);
         }
     }
 

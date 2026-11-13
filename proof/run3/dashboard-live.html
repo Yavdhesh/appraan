@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Appraan — live JVM observer</title>
+<style>
+  body { background:#0d1117; color:#e8ecf1; font-family:system-ui,sans-serif; margin:2rem; }
+  h1 { font-size:1.3rem; margin:0 0 .2rem; }
+  h2 { font-size:1rem; margin:0 0 .6rem; color:#9fb4c8; text-transform:uppercase; letter-spacing:.06em; }
+  .sub { color:#8b98a5; margin-bottom:1.4rem; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:1rem; }
+  .card { background:#161b22; border:1px solid #2b3440; border-radius:8px; padding:1rem 1.1rem; }
+  .big { font-size:1.5rem; font-variant-numeric:tabular-nums; }
+  .mono, td, th { font-variant-numeric:tabular-nums; }
+  table { border-collapse:collapse; width:100%; font-size:.88rem; }
+  td, th { padding:.18rem .4rem; text-align:left; border-bottom:1px solid #232b36; }
+  th { color:#9fb4c8; font-weight:600; }
+  td.n, th.n { text-align:right; }
+  .bar { background:#22304a; height:.7rem; border-radius:3px; overflow:hidden; }
+  .bar > div { background:#e8833a; height:100%; }
+  a { color:#6cb6ff; }
+  .err { color:#ff7b72; }
+</style>
+</head>
+<body>
+<h1>Appraan — the life of your application, live</h1>
+<div class="sub">Observing PID <span id="pid">…</span> · <span id="version">…</span>
+  · elapsed <span id="elapsed">…</span>s · <a href="/flame">CPU flame graph →</a></div>
+<div class="grid">
+  <section class="card"><h2>Target</h2>
+    <table>
+      <tr><th>GC collector</th><td id="gc-name">…</td></tr>
+      <tr><th>Java version</th><td id="java-version">…</td></tr>
+    </table>
+    <table id="flags" style="margin-top:.5rem"></table>
+    <p class="mono" id="cmdline" style="font-size:.78rem;color:#8b98a5;white-space:pre-wrap"></p>
+  </section>
+  <section class="card"><h2>Garbage collection</h2>
+    <table>
+      <tr><th>Young GCs</th><td class="n big" id="gc-young">…</td></tr>
+      <tr><th>Old GCs</th><td class="n big" id="gc-old">…</td></tr>
+      <tr><th>Pause total</th><td class="n" id="gc-pause-total">…</td></tr>
+      <tr><th>Pause max</th><td class="n" id="gc-pause-max">…</td></tr>
+      <tr><th>Last young GC</th><td class="n" id="gc-since-young">…</td></tr>
+      <tr><th>Last old GC</th><td class="n" id="gc-since-old">…</td></tr>
+      <tr><th>Promotion (est., G1)</th><td class="n" id="gc-promotion">…</td></tr>
+      <tr><th>G1 eden / survivor / old</th><td class="n" id="g1-split">…</td></tr>
+      <tr><th>Humongous regions</th><td class="n" id="g1-humongous">…</td></tr>
+    </table>
+  </section>
+  <section class="card"><h2>Allocation</h2>
+    <table>
+      <tr><th>Rate</th><td class="n big" id="alloc-rate">…</td></tr>
+      <tr><th>Total allocated</th><td class="n" id="alloc-total">…</td></tr>
+      <tr><th>Heap used (latest)</th><td class="n" id="alloc-heap">…</td></tr>
+    </table>
+    <p style="font-size:.78rem;color:#8b98a5">Source: <span id="alloc-source">…</span></p>
+  </section>
+  <section class="card"><h2>CPU — top leaf methods</h2>
+    <p style="margin:.1rem 0 .5rem"><span id="cpu-samples">…</span> execution samples</p>
+    <table id="cpu-top"><tr><th class="n">Samples</th><th class="n">%</th><th>Method</th></tr></table>
+  </section>
+  <section class="card"><h2>Per-core CPU</h2>
+    <p style="margin:.1rem 0 .5rem">Collector: <span id="cores-collector">…</span></p>
+    <table id="cores"></table>
+  </section>
+</div>
+<p class="err" id="err"></p>
+<script>
+const $ = id => document.getElementById(id);
+const fmtBytes = b => {
+  if (b < 0) return 'n/a';
+  const u = ['B','KiB','MiB','GiB','TiB']; let v = b, i = 0;
+  while (v >= 1024 && i < u.length - 1) { v /= 1024; i++; }
+  return (i === 0 ? v : v.toFixed(1)) + ' ' + u[i];
+};
+function rows(table, list) {
+  table.replaceChildren();
+  for (const cells of list) {
+    const tr = document.createElement('tr');
+    for (const c of cells) {
+      const td = document.createElement('td');
+      if (c.num) td.className = 'n';
+      td.textContent = c.text;
+      tr.appendChild(td);
+    }
+    table.appendChild(tr);
+  }
+}
+async function refresh() {
+  try {
+    const [summary, gc, cpu, cores] = await Promise.all([
+      fetch('/api/summary').then(r => r.json()),
+      fetch('/api/gc').then(r => r.json()),
+      fetch('/api/cpu').then(r => r.json()),
+      fetch('/api/cores').then(r => r.json())]);
+    $('err').textContent = '';
+    $('pid').textContent = summary.pid;
+    $('version').textContent = summary.version;
+    $('elapsed').textContent = summary.elapsedSeconds;
+    $('gc-name').textContent = summary.gcCollector;
+    $('java-version').textContent = summary.javaVersion;
+    $('cmdline').textContent = summary.commandLine;
+    rows($('flags'), Object.entries(summary.flags)
+      .map(([k, v]) => [{text: k}, {text: String(v), num: true}]));
+    $('gc-young').textContent = gc.young.count;
+    $('gc-old').textContent = gc.old.count;
+    $('gc-pause-total').textContent = gc.pauses.totalMs + ' ms';
+    $('gc-pause-max').textContent = gc.pauses.maxMs + ' ms';
+    $('gc-since-young').textContent = gc.young.sinceLast;
+    $('gc-since-old').textContent = gc.old.sinceLast;
+    $('gc-promotion').textContent = gc.g1.available
+      ? fmtBytes(gc.promotion.bytes) + ' over ' + gc.promotion.gcCount + ' young GCs'
+      : 'n/a (non-G1 collector)';
+    $('g1-split').textContent = gc.g1.available
+      ? fmtBytes(gc.g1.edenUsedBytes) + ' / ' + fmtBytes(gc.g1.survivorUsedBytes)
+        + ' / ' + fmtBytes(gc.g1.oldUsedBytes) + ' · ' + gc.g1.regions + ' regions'
+      : 'n/a (non-G1 collector)';
+    $('g1-humongous').textContent = gc.g1.available
+      ? gc.g1.humongous.regions + ' regions, ' + fmtBytes(gc.g1.humongous.usedBytes) + ' used'
+      : 'n/a (non-G1 collector)';
+    $('alloc-rate').textContent = fmtBytes(summary.allocation.rateBytesPerSec) + '/s';
+    $('alloc-total').textContent = fmtBytes(summary.allocation.totalBytes);
+    $('alloc-heap').textContent = fmtBytes(summary.allocation.heapUsedBytes);
+    $('alloc-source').textContent = summary.allocation.source;
+    $('cpu-samples').textContent = cpu.executionSamples;
+    const head = document.createElement('tr');
+    head.innerHTML = '<th class="n">Samples</th><th class="n">%</th><th>Method</th>';
+    const table = $('cpu-top');
+    table.replaceChildren(head);
+    for (const e of cpu.topLeaf) {
+      const tr = document.createElement('tr');
+      const a = document.createElement('td'); a.className = 'n'; a.textContent = e.samples;
+      const b = document.createElement('td'); b.className = 'n'; b.textContent = e.percent;
+      const c = document.createElement('td'); c.textContent = e.method;
+      tr.append(a, b, c); table.appendChild(tr);
+    }
+    $('cores-collector').textContent = cores.collector;
+    const ct = $('cores'); ct.replaceChildren();
+    for (const c of cores.cores) {
+      const tr = document.createElement('tr');
+      const a = document.createElement('td'); a.textContent = 'core ' + c.core;
+      const b = document.createElement('td'); b.style.width = '60%';
+      const bar = document.createElement('div'); bar.className = 'bar';
+      const fill = document.createElement('div'); fill.style.width = c.busyPercent + '%';
+      bar.appendChild(fill); b.appendChild(bar);
+      const d = document.createElement('td'); d.className = 'n'; d.textContent = c.busyPercent + '%';
+      tr.append(a, b, d); ct.appendChild(tr);
+    }
+  } catch (e) {
+    $('err').textContent = 'Live update failed (is Appraan still running?): ' + e;
+  }
+}
+refresh();
+setInterval(refresh, 2000);
+</script>
+</body>
+</html>
