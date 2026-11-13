@@ -3,15 +3,23 @@ package dev.appraan.cli;
 import dev.appraan.attach.TargetVm;
 import dev.appraan.discover.TargetInfo;
 import dev.appraan.jfr.LiveJfr;
+import dev.appraan.kernel.KernelData;
+import dev.appraan.kernel.KernelFeed;
 import dev.appraan.metrics.Metrics;
 import dev.appraan.os.OsCollector;
+import dev.appraan.os.ProcessIo;
 import dev.appraan.ui.Snapshot;
 import dev.appraan.ui.UiServer;
 
 import java.io.IOException;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -22,6 +30,65 @@ import java.util.concurrent.atomic.AtomicReference;
  * new events into running metrics, and prints one compact status block.
  */
 public final class Appraan {
+
+    // ---- graceful-shutdown coordination (SIGINT/SIGTERM) ----
+    // The hook interrupts the main thread (breaking its sleep); the main
+    // thread then runs the normal cleanup path (stop JFR, close UI, print
+    // the final summary) and counts the latch down. Only if main does not
+    // finish within a few seconds does the hook stop things itself.
+    private static final CountDownLatch CLEANUP_DONE = new CountDownLatch(1);
+    private static final AtomicBoolean HOOK_REGISTERED = new AtomicBoolean();
+    private static volatile Thread mainThread;
+    private static volatile LiveJfr hookJfr;
+    private static volatile UiServer hookUi;
+    private static volatile AtomicReference<Snapshot> hookSnapshots;
+
+    private static void registerShutdownHook() {
+        if (!HOOK_REGISTERED.compareAndSet(false, true)) {
+            return;
+        }
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            Thread m = mainThread;
+            if (m != null) {
+                m.interrupt();
+            }
+            boolean cleaned = false;
+            try {
+                cleaned = CLEANUP_DONE.await(5, TimeUnit.SECONDS);
+            } catch (InterruptedException ignored) {
+                // Fall through to emergency cleanup.
+            }
+            if (!cleaned) {
+                try {
+                    if (hookJfr != null) {
+                        hookJfr.stop();
+                    }
+                } catch (Exception ignored) {
+                    // Best effort only — the JVM is going down.
+                }
+                try {
+                    if (hookUi != null) {
+                        hookUi.close();
+                    }
+                } catch (Exception ignored) {
+                    // Best effort only.
+                }
+                Snapshot s = hookSnapshots != null ? hookSnapshots.get() : null;
+                if (s != null) {
+                    printFinalSummary(s, true);
+                }
+                System.out.println("Appraan: shutdown hook completed cleanup (interrupted).");
+            }
+        }, "appraan-shutdown"));
+    }
+
+    private static void printFinalSummary(Snapshot s, boolean interrupted) {
+        System.out.printf("%nAppraan final summary%s: PID %s observed %.0fs — young GCs %d, "
+                        + "old GCs %d, allocated %s, CPU samples %d.%n",
+                interrupted ? " (interrupted)" : "",
+                s.pid(), s.elapsedSeconds(), s.youngGcCount(), s.oldGcCount(),
+                Metrics.formatBytes(s.allocatedBytes()), s.executionSamples());
+    }
 
     public static void main(String[] args) {
         CliOptions options;
@@ -60,8 +127,22 @@ public final class Appraan {
             Metrics metrics = new Metrics();
             OsCollector os = OsCollector.create();
             System.out.println("OS collector: " + os.name());
-            System.out.println("Observing for " + options.seconds() + "s, status every "
-                    + options.intervalSeconds() + "s. Ctrl-C to stop early.\n");
+            if (options.seconds() == 0) {
+                System.out.println("Observing until Ctrl+C (UI mode), status every "
+                        + options.intervalSeconds() + "s.\n");
+            } else {
+                System.out.println("Observing for " + options.seconds() + "s, status every "
+                        + options.intervalSeconds() + "s. Ctrl-C to stop early.\n");
+            }
+
+            // Kernel feed (appraanagent): push arrives via the UI's ingest
+            // endpoint; --kernel-file is the fallback poll. Appraan itself
+            // never needs elevation — the agent runs elevated on its own.
+            boolean windows = System.getProperty("os.name", "")
+                    .toLowerCase(Locale.ROOT).contains("win");
+            KernelFeed kernelFeed = new KernelFeed(
+                    options.kernelFile() == null ? null : Path.of(options.kernelFile()),
+                    windows, options.pid(), options.port());
 
             // Embedded web UI over the same metric model: handlers read
             // immutable snapshots refreshed after every poll. A UI failure
@@ -71,32 +152,56 @@ public final class Appraan {
             UiServer ui = null;
             if (options.uiEnabled()) {
                 try {
-                    ui = new UiServer(liveSnapshot::get, options.port());
+                    ui = new UiServer(liveSnapshot::get, options.port(), kernelFeed);
                     ui.start();
-                    System.out.println("Web UI: " + ui.baseUrl() + "/  (flame graph: "
+                    kernelFeed.setUiPort(ui.port());
+                    System.out.println("Web UI: " + ui.baseUrl() + "/  (kernel: "
+                            + ui.baseUrl() + "/kernel, flame graph: "
                             + ui.baseUrl() + "/flame)");
                 } catch (IOException e) {
                     System.err.println("Appraan: web UI unavailable on port " + options.port()
                             + " (" + e.getMessage() + ") — continuing with console output only.");
                 }
             }
+            if (options.kernelFile() != null) {
+                System.out.println("Kernel feed: polling appraanagent file " + options.kernelFile()
+                        + " (a push to /api/kernel/ingest still wins when it arrives).");
+            } else if (ui != null) {
+                System.out.println("Kernel feed: appraanagent can push to "
+                        + ui.baseUrl() + "/api/kernel/ingest");
+            }
+
+            mainThread = Thread.currentThread();
+            hookUi = ui;
+            hookSnapshots = liveSnapshot;
+            registerShutdownHook();
 
             try (LiveJfr jfr = new LiveJfr(target, metrics)) {
+                hookJfr = jfr;
                 jfr.start();
                 // Sampler warm-up: the allocation sampler's weights are inflated
                 // while its throttle adapts right after recording start. Poll once
                 // with allocation accounting suspended so totals/rates stay honest.
                 metrics.setAllocationWarmup(true);
-                Thread.sleep(2000);
-                jfr.pollOnce();
-                metrics.setAllocationWarmup(false);
-                runLoop(options, jfr, metrics, os, info, liveSnapshot);
+                boolean interrupted = false;
+                try {
+                    Thread.sleep(2000);
+                    jfr.pollOnce();
+                    metrics.setAllocationWarmup(false);
+                    runLoop(options, jfr, metrics, os, info, liveSnapshot, kernelFeed);
+                } catch (InterruptedException e) {
+                    // Ctrl+C: the shutdown hook interrupted us — finish cleanly.
+                    interrupted = true;
+                    metrics.setAllocationWarmup(false);
+                }
                 jfr.stop();
+                printFinalSummary(liveSnapshot.get(), interrupted);
                 System.out.println("\nJFR recording 'appraan' stopped in target; detached.");
             } finally {
                 if (ui != null) {
                     ui.close();
                 }
+                CLEANUP_DONE.countDown();
             }
             return 0;
         } catch (Exception e) {
@@ -106,14 +211,20 @@ public final class Appraan {
     }
 
     private static void runLoop(CliOptions options, LiveJfr jfr, Metrics metrics, OsCollector os,
-                                TargetInfo info, AtomicReference<Snapshot> liveSnapshot)
+                                TargetInfo info, AtomicReference<Snapshot> liveSnapshot,
+                                KernelFeed kernelFeed)
             throws Exception {
         long startedNanos = System.nanoTime();
-        long totalNanos = Duration.ofSeconds(options.seconds()).toNanos();
+        // --seconds 0 = run until Ctrl+C: an effectively unbounded total;
+        // the existing remaining/sleep math then always picks the interval.
+        long totalNanos = options.seconds() == 0
+                ? Long.MAX_VALUE
+                : Duration.ofSeconds(options.seconds()).toNanos();
         long prevAllocBytes = 0;
         long prevYoungGc = 0;
         long prevPromotionBytes = 0;
         long prevSamples = 0;
+        boolean kernelHintPrinted = false;
         Instant prevWall = Instant.now();
 
         int round = 0;
@@ -182,6 +293,35 @@ public final class Appraan {
             } else {
                 System.out.println("Cores: n/a on this platform/collector");
             }
+
+            // Kernel block: freshest appraanagent snapshot (push wins over
+            // file), else the Linux /proc parity line, else — on Windows
+            // only, once, after ~15 s — the elevated-agent guidance.
+            kernelFeed.refreshFile();
+            KernelFeed.View kv = kernelFeed.view();
+            if (kv.data() != null) {
+                printKernelBlock(kv);
+            } else {
+                ProcessIo pio = null;
+                try {
+                    pio = os.processIo(Long.parseLong(info.pid()));
+                } catch (NumberFormatException ignored) {
+                    // Non-numeric pid cannot happen (CLI validates digits).
+                }
+                if (pio != null) {
+                    System.out.printf("Kernel: no ETW feed — /proc process IO (cumulative since "
+                                    + "process start): read %s, write %s, syscalls r/w %d/%d%n",
+                            Metrics.formatBytes(pio.readBytes()),
+                            Metrics.formatBytes(pio.writeBytes()),
+                            pio.syscr(), pio.syscw());
+                }
+                if (!kernelHintPrinted && elapsed >= 15 && kv.hint() != null
+                        && kv.hint().command() != null) {
+                    System.out.println("Kernel: " + kv.hint().message());
+                    System.out.println("        " + kv.hint().command());
+                    kernelHintPrinted = true;
+                }
+            }
             System.out.flush();
 
             // Publish the same numbers the console just printed to the web UI,
@@ -196,5 +336,35 @@ public final class Appraan {
             prevSamples = metrics.executionSamples();
             prevWall = wallNow;
         }
+    }
+
+    /** The compact console {@code Kernel:} block, in the existing line style. */
+    private static void printKernelBlock(KernelFeed.View kv) {
+        KernelData d = kv.data();
+        KernelData.OffCpu oc = d.offCpu();
+        String topReason = oc.reasons().isEmpty()
+                ? "n/a"
+                : oc.reasons().get(0).name() + " " + oc.reasons().get(0).pct() + "%";
+        System.out.printf("Kernel:%s source=%s age=%ds | off-CPU %.1f%% (on %.0f ms, off %.0f ms) "
+                        + "episodes=%d max=%.0f ms | top reason %s%n",
+                kv.stale() ? " (stale)" : "", kv.source(), kv.ageSeconds(),
+                oc.offCpuPct(), oc.onCpuMs(), oc.offCpuMs(), oc.episodes(),
+                oc.maxEpisodeMs(), topReason);
+        StringBuilder opsLine = new StringBuilder("        ops:");
+        String sep = " ";
+        for (KernelData.Category c : d.categories()) {
+            opsLine.append(sep).append(c.name()).append('=').append(c.count());
+            if (c.avgUs() != null) {
+                opsLine.append(" avg ").append(c.avgUs()).append(" us max ")
+                        .append(c.maxUs()).append(" us");
+            }
+            sep = " | ";
+        }
+        System.out.println(opsLine);
+        System.out.printf("        tcp: closed=%d tx=%s rx=%s open=%d%n",
+                d.tcp().closedTotal(),
+                Metrics.formatBytes(d.tcp().txBytes()),
+                Metrics.formatBytes(d.tcp().rxBytes()),
+                d.tcp().stillOpen());
     }
 }

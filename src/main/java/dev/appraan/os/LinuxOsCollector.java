@@ -45,6 +45,51 @@ final class LinuxOsCollector implements OsCollector {
         return busy;
     }
 
+    /**
+     * Reads {@code /proc/<pid>/io}: syscr/syscw (read/write syscalls issued)
+     * and read_bytes/write_bytes/cancelled_write_bytes (bytes the process
+     * caused to go to the storage layer). Cumulative since process start.
+     * Returns {@code null} when the file is unreadable (process gone, or
+     * hidden by hidepid) rather than fabricating zeros.
+     */
+    @Override
+    public ProcessIo processIo(long pid) {
+        if (pid <= 0) {
+            return null;
+        }
+        try {
+            long syscr = -1, syscw = -1, readBytes = -1, writeBytes = -1, cancelled = -1;
+            for (String line : Files.readAllLines(Path.of("/proc/" + pid + "/io"))) {
+                int colon = line.indexOf(':');
+                if (colon < 0) {
+                    continue;
+                }
+                long value;
+                try {
+                    value = Long.parseLong(line.substring(colon + 1).trim());
+                } catch (NumberFormatException e) {
+                    continue;
+                }
+                switch (line.substring(0, colon).trim()) {
+                    case "syscr" -> syscr = value;
+                    case "syscw" -> syscw = value;
+                    case "read_bytes" -> readBytes = value;
+                    case "write_bytes" -> writeBytes = value;
+                    case "cancelled_write_bytes" -> cancelled = value;
+                    default -> {
+                        // rchar/wchar not surfaced in the model today.
+                    }
+                }
+            }
+            if (syscr < 0 || syscw < 0 || readBytes < 0 || writeBytes < 0) {
+                return null;
+            }
+            return new ProcessIo(syscr, syscw, readBytes, writeBytes, Math.max(cancelled, 0));
+        } catch (IOException e) {
+            return null;
+        }
+    }
+
     /** Parses the per-core {@code cpuN} lines of /proc/stat into [total, idleAll] pairs. */
     private static List<long[]> readCpuLines() {
         List<long[]> cores = new ArrayList<>();

@@ -4,6 +4,7 @@ import dev.appraan.discover.TargetInfo;
 import dev.appraan.metrics.G1Stats;
 import dev.appraan.metrics.Metrics;
 import dev.appraan.os.OsCollector;
+import dev.appraan.os.ProcessIo;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -51,7 +52,9 @@ public record Snapshot(
         long humongousRegionCount,
         long humongousUsedBytes,
         Map<String, long[]> regionTypeCensus,
-        Instant regionCensusAt) {
+        Instant regionCensusAt,
+        /** Linux /proc per-process I/O for the target (cumulative), or null. */
+        ProcessIo procIo) {
 
     /** How many leaf methods the dashboard / flame page tables show. */
     public static final int TOP_LEAF_LIMIT = 15;
@@ -112,7 +115,17 @@ public record Snapshot(
                 g1.humongousRegionCount(),
                 g1.humongousUsedBytes(),
                 census,
-                g1.censusUpdatedAt());
+                g1.censusUpdatedAt(),
+                readProcessIo(info, os));
+    }
+
+    /** Per-process I/O via the OS collector; null when unavailable/unparseable. */
+    private static ProcessIo readProcessIo(TargetInfo info, OsCollector os) {
+        try {
+            return os.processIo(Long.parseLong(info.pid()));
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     private static String since(Instant last, Instant now) {

@@ -23,6 +23,16 @@ public interface OsCollector {
      */
     double[] perCoreCpuBusyPercent();
 
+    /**
+     * Per-process I/O counters for the target pid, or {@code null} when the
+     * platform cannot supply them. Linux reads {@code /proc/<pid>/io}
+     * (cumulative since process start — see {@link ProcessIo}); other
+     * platforms return {@code null} until their collectors grow the metric.
+     */
+    default ProcessIo processIo(long pid) {
+        return null;
+    }
+
     static OsCollector create() {
         String os = System.getProperty("os.name", "").toLowerCase(Locale.ROOT);
         if (os.contains("win")) {
