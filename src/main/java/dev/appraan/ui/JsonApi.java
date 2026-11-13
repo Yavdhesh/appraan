@@ -221,10 +221,19 @@ public final class JsonApi {
                     .put("partial", t.partial())
                     .toString());
         }
-        return Json.obj()
+        Json.Obj doc = Json.obj()
                 .put("pid", d.pid())
                 .put("tEpochMs", d.tEpochMs())
-                .put("windowSeconds", d.windowSeconds())
+                .put("windowSeconds", d.windowSeconds());
+        if (d.host() != null) {
+            doc.put("host", d.host());
+        }
+        if (!d.labels().isEmpty()) {
+            Json.Obj labels = Json.obj();
+            d.labels().forEach(labels::put);
+            doc.putRaw("labels", labels.toString());
+        }
+        return doc
                 .putRaw("ops", Json.obj()
                         .putRaw("categories", categories.toString())
                         .putRaw("diagnostics", Json.obj()

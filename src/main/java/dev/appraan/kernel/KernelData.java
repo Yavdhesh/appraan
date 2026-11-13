@@ -31,7 +31,11 @@ import java.util.Map;
  */
 public record KernelData(long pid, long tEpochMs, double windowSeconds,
                          List<Category> categories, Diagnostics diagnostics,
-                         Tcp tcp, OffCpu offCpu) {
+                         Tcp tcp, OffCpu offCpu,
+                         /** Producing host (optional, pod/collector foresight); null when absent. */
+                         String host,
+                         /** Free-form producer labels (optional); empty when absent. */
+                         Map<String, String> labels) {
 
     public record Category(String name, long count, long latOps, Double avgUs, Double maxUs,
                            Map<String, Long> kinds, Map<String, Long> hist) {
@@ -91,7 +95,23 @@ public record KernelData(long pid, long tEpochMs, double windowSeconds,
                 parseCategories(ops),
                 parseDiagnostics(ops == null ? null : asObject(ops.get("diagnostics"))),
                 parseTcp(tcpObj),
-                parseOffCpu(offObj));
+                parseOffCpu(offObj),
+                doc.get("host") instanceof String h ? h : null,
+                asStringMap(doc.get("labels")));
+    }
+
+    private static Map<String, String> asStringMap(Object o) {
+        Map<String, Object> m = asObject(o);
+        if (m == null) {
+            return Map.of();
+        }
+        Map<String, String> out = new LinkedHashMap<>();
+        m.forEach((k, v) -> {
+            if (v instanceof String s) {
+                out.put(k, s);
+            }
+        });
+        return java.util.Collections.unmodifiableMap(out);
     }
 
     private static List<Category> parseCategories(Map<String, Object> ops) {

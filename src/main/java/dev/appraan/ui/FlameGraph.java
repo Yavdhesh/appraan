@@ -107,36 +107,50 @@ public final class FlameGraph {
         if (total > 0) {
             // Root at the bottom; children grow upward.
             int rootY = TOP_PAD + depth * FRAME_HEIGHT;
-            render(sb, root, 0, rootY, width, total, depth);
+            render(sb, root, 0, rootY, width, total, width, 0);
         }
         sb.append("</svg>\n");
         return sb.toString();
     }
 
+    /**
+     * One frame. The {@code <g>} carries the data the flame page's zoom
+     * script needs — frame name, fractional x/width within the full
+     * graph, and depth — so zooming is a pure client-side rescale of
+     * these attributes (see Pages.flamePage). The text element is always
+     * emitted (hidden when the frame is too narrow) so a zoomed-in frame
+     * can reveal its label.
+     */
     private static void render(StringBuilder sb, Node node, double x, int y, double w,
-                               long total, int levelsUp) {
-        sb.append("<g><title>").append(esc(node.name)).append(" — ").append(node.value)
+                               long total, double fullWidth, int frameDepth) {
+        sb.append("<g class=\"frame\" data-name=\"").append(esc(node.name))
+                .append("\" data-x=\"").append(frac(x / fullWidth))
+                .append("\" data-w=\"").append(frac(w / fullWidth))
+                .append("\" data-depth=\"").append(frameDepth).append("\">");
+        sb.append("<title>").append(esc(node.name)).append(" — ").append(node.value)
                 .append(" samples (").append(String.format(java.util.Locale.ROOT, "%.1f", node.value * 100.0 / total))
                 .append("%)</title>");
         sb.append("<rect x=\"").append(fmt(x)).append("\" y=\"").append(y)
                 .append("\" width=\"").append(fmt(Math.max(w - 0.5, 0.5)))
                 .append("\" height=\"").append(FRAME_HEIGHT - 1)
                 .append("\" fill=\"").append(color(node.name)).append("\" rx=\"1\"/>");
-        if (w > 32) {
-            String label = node.name;
-            int maxChars = (int) (w / 6.5);
-            if (label.length() > maxChars && maxChars > 3) {
-                label = label.substring(0, maxChars - 1) + "…";
-            }
-            sb.append("<text x=\"").append(fmt(x + 3)).append("\" y=\"").append(y + 12)
-                    .append("\" fill=\"#10131a\">").append(esc(label)).append("</text>");
+        String label = node.name;
+        int maxChars = (int) (w / 6.5);
+        if (label.length() > maxChars && maxChars > 3) {
+            label = label.substring(0, maxChars - 1) + "…";
         }
+        sb.append("<text x=\"").append(fmt(x + 3)).append("\" y=\"").append(y + 12)
+                .append("\" fill=\"#10131a\"");
+        if (w <= 32) {
+            sb.append(" style=\"display:none\"");
+        }
+        sb.append(">").append(esc(label)).append("</text>");
         sb.append("</g>\n");
         double childX = x;
         for (Node child : node.children.values()) {
             double childW = w * child.value / (double) node.value;
             if (childW >= MIN_WIDTH_PX) {
-                render(sb, child, childX, y - FRAME_HEIGHT, childW, total, levelsUp - 1);
+                render(sb, child, childX, y - FRAME_HEIGHT, childW, total, fullWidth, frameDepth + 1);
             }
             childX += childW;
         }
@@ -153,6 +167,10 @@ public final class FlameGraph {
 
     private static String fmt(double v) {
         return String.format(java.util.Locale.ROOT, "%.1f", v);
+    }
+
+    private static String frac(double v) {
+        return String.format(java.util.Locale.ROOT, "%.6f", v);
     }
 
     /** XML escaping for frame names in text/title content. */

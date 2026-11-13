@@ -103,6 +103,7 @@ public final class Pages {
                   <section class="card"><h2>Kernel <span style="text-transform:none;letter-spacing:0">· <a href="/kernel">full page →</a></span></h2>
                     <div id="kernel-hint"></div>
                     <div id="kernel-body">
+                      <p class="small" style="margin:.1rem 0 .2rem" id="kernel-host"></p>
                       <p style="margin:.1rem 0 .5rem" id="kernel-offcpu"></p>
                       <table id="kernel-cats"></table>
                       <div id="kernel-hist" class="small" style="margin-top:.4rem"></div>
@@ -154,6 +155,7 @@ public final class Pages {
                   }
                   body.classList.toggle('dim', !!k.stale);
                   if (!k.available) {
+                    $('kernel-host').textContent = '';
                     $('kernel-offcpu').textContent = '';
                     rows($('kernel-cats'), []);
                     $('kernel-hist').textContent = '';
@@ -162,6 +164,11 @@ public final class Pages {
                     rows($('kernel-reasons'), []);
                   } else {
                     const kd = k.kernel, oc = kd.offCpu;
+                    $('kernel-host').textContent = kd.host
+                      ? 'host: ' + kd.host + (kd.labels
+                          ? ' · ' + Object.entries(kd.labels).map(([a, b]) => a + '=' + b).join(' · ')
+                          : '')
+                      : '';
                     const topReason = oc.reasons.length ? oc.reasons[0] : null;
                     $('kernel-offcpu').textContent =
                       'Off-CPU ' + oc.offCpuPct + '% · on ' + Math.round(oc.onCpuMs) + ' ms · off '
@@ -312,7 +319,60 @@ public final class Pages {
                 .append(" samples with stacks of ").append(s.executionSamples())
                 .append(" execution samples · width ∝ samples · hover a frame for counts · ")
                 .append("snapshot at ").append(FlameGraph.esc(String.valueOf(s.capturedAt()))).append("</p>\n");
+        sb.append("<p><button id=\"zoom-reset\" type=\"button\">Reset zoom</button> ")
+                .append("<span id=\"zoom-info\">Click a frame to zoom into it.</span></p>\n");
         sb.append(FlameGraph.svg(s.collapsedStacks(), FlameGraph.DEFAULT_WIDTH));
+        sb.append("""
+                <script>
+                (function () {
+                  const frames = Array.from(document.querySelectorAll('g.frame'));
+                  if (!frames.length) return;
+                  const svg = document.querySelector('svg');
+                  const W = svg.viewBox.baseVal.width;
+                  const info = document.getElementById('zoom-info');
+                  function fitLabel(name, wPx) {
+                    const maxChars = Math.floor(wPx / 6.5);
+                    return (name.length > maxChars && maxChars > 3)
+                      ? name.substring(0, maxChars - 1) + '…' : name;
+                  }
+                  function applyZoom(zx, zw, frame) {
+                    const scale = 1 / zw;
+                    for (const g of frames) {
+                      const x = parseFloat(g.dataset.x), w = parseFloat(g.dataset.w);
+                      const inside = x >= zx - 1e-9 && (x + w) <= (zx + zw) + 1e-9;
+                      const rect = g.querySelector('rect');
+                      const text = g.querySelector('text');
+                      if (!inside) { g.style.display = 'none'; continue; }
+                      g.style.display = '';
+                      const nx = (x - zx) * scale * W;
+                      const nw = w * scale * W;
+                      rect.setAttribute('x', nx.toFixed(1));
+                      rect.setAttribute('width', Math.max(nw - 0.5, 0.5).toFixed(1));
+                      if (text) {
+                        text.setAttribute('x', (nx + 3).toFixed(1));
+                        if (nw > 32) {
+                          text.style.display = '';
+                          text.textContent = fitLabel(g.dataset.name, nw);
+                        } else {
+                          text.style.display = 'none';
+                        }
+                      }
+                    }
+                    info.textContent = frame
+                      ? 'Zoomed: ' + frame.dataset.name + ' — '
+                        + (parseFloat(frame.dataset.w) * 100).toFixed(1) + '% of samples'
+                      : 'Click a frame to zoom into it.';
+                  }
+                  for (const g of frames) {
+                    g.style.cursor = 'pointer';
+                    g.addEventListener('click', () =>
+                      applyZoom(parseFloat(g.dataset.x), parseFloat(g.dataset.w), g));
+                  }
+                  document.getElementById('zoom-reset')
+                    .addEventListener('click', () => applyZoom(0, 1, null));
+                })();
+                </script>
+                """);
         sb.append("<h2>Top leaf methods (same samples as the graph)</h2>\n<table>\n");
         sb.append("<tr><th class=\"n\">Samples</th><th class=\"n\">%</th><th>Method</th></tr>\n");
         for (Map.Entry<String, Long> e : s.topLeafMethods()) {
@@ -382,6 +442,19 @@ public final class Pages {
                     .append(" · snapshot age ").append(view.ageSeconds()).append("s")
                     .append(view.stale() ? " · <b>STALE</b>" : "")
                     .append(" · agent window ").append(d.windowSeconds()).append("s</p>\n");
+            if (d.host() != null) {
+                sb.append("<p>host: ").append(FlameGraph.esc(d.host()));
+                if (!d.labels().isEmpty()) {
+                    sb.append(" · ");
+                    String lsep = "";
+                    for (Map.Entry<String, String> e : d.labels().entrySet()) {
+                        sb.append(lsep).append(FlameGraph.esc(e.getKey())).append('=')
+                                .append(FlameGraph.esc(e.getValue()));
+                        lsep = " · ";
+                    }
+                }
+                sb.append("</p>\n");
+            }
 
             KernelData.OffCpu oc = d.offCpu();
             sb.append("<h2>Off-CPU</h2>\n<p>")

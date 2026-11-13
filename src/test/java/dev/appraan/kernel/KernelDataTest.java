@@ -39,9 +39,26 @@ public final class KernelDataTest {
     public static void main(String[] args) {
         parsesVerifiedFigures();
         histogramRoundTrips();
+        hostAndLabels();
         parserRejectsMalformed();
         parserHandlesEscapesAndShapes();
         System.out.println("KernelDataTest: all " + checks + " checks passed");
+    }
+
+    private static void hostAndLabels() {
+        // The base document carries no host/labels: both stay absent.
+        KernelData plain = KernelData.parse(DOC);
+        check(plain.host() == null && plain.labels().isEmpty(),
+                "absent host/labels stay absent (back-compat)");
+
+        String withHost = DOC.replace("\"windowSeconds\":40.0,",
+                "\"windowSeconds\":40.0,\"host\":\"pod-node-7\","
+                        + "\"labels\":{\"pod\":\"demo\",\"env\":\"test\"},");
+        KernelData d = KernelData.parse(withHost);
+        check("pod-node-7".equals(d.host()), "host parsed");
+        check("demo".equals(d.labels().get("pod")) && "test".equals(d.labels().get("env")),
+                "labels parsed");
+        check(d.category("File").count() == 4040, "host/labels don't disturb the rest");
     }
 
     private static void parsesVerifiedFigures() {
