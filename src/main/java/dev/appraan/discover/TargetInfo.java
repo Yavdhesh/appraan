@@ -28,8 +28,9 @@ public record TargetInfo(
             "G1HeapRegionSize", "MaxTenuringThreshold", "UseCompressedOops", "UseStringDeduplication"
     };
 
-    private static final Pattern FLAG_LINE =
-            Pattern.compile("^\\s*\\S+\\s+(\\S+)\\s*=\\s*(\\S+)");
+    /** jcmd VM.flags prints command-line style tokens: -XX:+BoolFlag, -XX:-BoolFlag, -XX:Name=value. */
+    private static final Pattern FLAG_TOKEN =
+            Pattern.compile("-XX:([+-]?)([A-Za-z0-9_]+)(?:=(\\S+))?");
     private static final Pattern VERSION =
             Pattern.compile("(\\d+)\\.(\\d+)\\.(\\d+)(?:[_+](\\S+))?");
 
@@ -51,15 +52,21 @@ public record TargetInfo(
             javaVersion = vm.group(1) + "." + vm.group(2) + "." + vm.group(3);
         }
 
+        Map<String, String> found = new LinkedHashMap<>();
+        Matcher fm = FLAG_TOKEN.matcher(flagsOut);
+        while (fm.find()) {
+            String sign = fm.group(1);
+            String name = fm.group(2);
+            String value = fm.group(3);
+            if (value == null) {
+                value = "-".equals(sign) ? "false" : "true";
+            }
+            found.put(name, value);
+        }
         Map<String, String> flags = new LinkedHashMap<>();
-        for (String line : flagsOut.split("\\R")) {
-            Matcher m = FLAG_LINE.matcher(line);
-            if (m.find()) {
-                for (String name : INTERESTING_FLAGS) {
-                    if (name.equals(m.group(1))) {
-                        flags.put(name, m.group(2));
-                    }
-                }
+        for (String name : INTERESTING_FLAGS) {
+            if (found.containsKey(name)) {
+                flags.put(name, found.get(name));
             }
         }
 

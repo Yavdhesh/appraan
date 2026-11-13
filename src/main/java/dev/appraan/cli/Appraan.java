@@ -61,6 +61,13 @@ public final class Appraan {
 
             try (LiveJfr jfr = new LiveJfr(target, metrics)) {
                 jfr.start();
+                // Sampler warm-up: the allocation sampler's weights are inflated
+                // while its throttle adapts right after recording start. Poll once
+                // with allocation accounting suspended so totals/rates stay honest.
+                metrics.setAllocationWarmup(true);
+                Thread.sleep(2000);
+                jfr.pollOnce();
+                metrics.setAllocationWarmup(false);
                 runLoop(options, jfr, metrics, os);
                 jfr.stop();
                 System.out.println("\nJFR recording 'appraan' stopped in target; detached.");

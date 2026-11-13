@@ -39,6 +39,10 @@ public final class Metrics {
 
     // Allocation
     private boolean allocFromSamples;
+    /** While true, allocation events are observed (source detection) but their bytes are
+     *  discarded: the JFR allocation sampler's throttle adapts during the first moments
+     *  after recording start and emits hugely inflated weights in that window. */
+    private boolean allocationWarmup;
     private long sampleAllocBytes;
     private long sampleAllocEvents;
     private long tlabAllocBytes;
@@ -79,16 +83,18 @@ public final class Metrics {
             }
             case "jdk.ObjectAllocationSample" -> {
                 allocFromSamples = true;
-                sampleAllocBytes += e.getLong("weight");
                 sampleAllocEvents++;
+                if (!allocationWarmup) {
+                    sampleAllocBytes += e.getLong("weight");
+                }
             }
             case "jdk.ObjectAllocationInNewTLAB" -> {
-                if (!allocFromSamples) {
+                if (!allocFromSamples && !allocationWarmup) {
                     tlabAllocBytes += e.getLong("tlabSize");
                 }
             }
             case "jdk.ObjectAllocationOutsideTLAB" -> {
-                if (!allocFromSamples) {
+                if (!allocFromSamples && !allocationWarmup) {
                     tlabAllocBytes += e.getLong("allocationSize");
                 }
             }
@@ -134,6 +140,10 @@ public final class Metrics {
         } catch (Exception ex) {
             return Duration.ZERO;
         }
+    }
+
+    public void setAllocationWarmup(boolean warmup) {
+        this.allocationWarmup = warmup;
     }
 
     /** Total allocated bytes according to the best available source. */
