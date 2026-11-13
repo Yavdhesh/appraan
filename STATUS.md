@@ -6,8 +6,8 @@ over the same metric model. Checkpoint log:
       (Metrics/TargetInfo/OsCollector); DESIGN names no UI flags, so `--port`
       (default 7676) and `--no-ui` are added as additive CLI options.
 - [x] Collapsed-stack collection in Metrics (Stacks helper, pure + unit-tested).
-- [ ] UI package: JSON API, dashboard page, flame graph SVG, UiServer.
-- [ ] CLI wiring (--port / --no-ui), build, tests.
+- [x] UI package: JSON API, dashboard page, flame graph SVG, UiServer.
+- [x] CLI wiring (--port / --no-ui), build, tests (44 checks pass).
 - [ ] Proof run 2 (proof/run2.log + snapshot artefacts), README/DESIGN updates.
 
 Milestone 1: skeleton, target discovery (Attach API), live JFR pipeline, OS collector SPI, demo target, proof run.

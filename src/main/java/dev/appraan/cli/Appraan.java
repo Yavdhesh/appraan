@@ -5,10 +5,14 @@ import dev.appraan.discover.TargetInfo;
 import dev.appraan.jfr.LiveJfr;
 import dev.appraan.metrics.Metrics;
 import dev.appraan.os.OsCollector;
+import dev.appraan.ui.Snapshot;
+import dev.appraan.ui.UiServer;
 
+import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Appraan — live JVM observer.
@@ -59,6 +63,24 @@ public final class Appraan {
             System.out.println("Observing for " + options.seconds() + "s, status every "
                     + options.intervalSeconds() + "s. Ctrl-C to stop early.\n");
 
+            // Embedded web UI over the same metric model: handlers read
+            // immutable snapshots refreshed after every poll. A UI failure
+            // (e.g. port in use) must never take the observer down with it.
+            AtomicReference<Snapshot> liveSnapshot = new AtomicReference<>(
+                    Snapshot.capture(info, metrics, os, Instant.now(), 0, 0));
+            UiServer ui = null;
+            if (options.uiEnabled()) {
+                try {
+                    ui = new UiServer(liveSnapshot::get, options.port());
+                    ui.start();
+                    System.out.println("Web UI: " + ui.baseUrl() + "/  (flame graph: "
+                            + ui.baseUrl() + "/flame)");
+                } catch (IOException e) {
+                    System.err.println("Appraan: web UI unavailable on port " + options.port()
+                            + " (" + e.getMessage() + ") — continuing with console output only.");
+                }
+            }
+
             try (LiveJfr jfr = new LiveJfr(target, metrics)) {
                 jfr.start();
                 // Sampler warm-up: the allocation sampler's weights are inflated
@@ -68,9 +90,13 @@ public final class Appraan {
                 Thread.sleep(2000);
                 jfr.pollOnce();
                 metrics.setAllocationWarmup(false);
-                runLoop(options, jfr, metrics, os);
+                runLoop(options, jfr, metrics, os, info, liveSnapshot);
                 jfr.stop();
                 System.out.println("\nJFR recording 'appraan' stopped in target; detached.");
+            } finally {
+                if (ui != null) {
+                    ui.close();
+                }
             }
             return 0;
         } catch (Exception e) {
@@ -79,7 +105,8 @@ public final class Appraan {
         }
     }
 
-    private static void runLoop(CliOptions options, LiveJfr jfr, Metrics metrics, OsCollector os)
+    private static void runLoop(CliOptions options, LiveJfr jfr, Metrics metrics, OsCollector os,
+                                TargetInfo info, AtomicReference<Snapshot> liveSnapshot)
             throws Exception {
         long startedNanos = System.nanoTime();
         long totalNanos = Duration.ofSeconds(options.seconds()).toNanos();
@@ -134,6 +161,10 @@ public final class Appraan {
                 System.out.println("Cores: n/a on this platform/collector");
             }
             System.out.flush();
+
+            // Publish the same numbers the console just printed to the web UI.
+            liveSnapshot.set(Snapshot.capture(info, metrics, os, jfr.watermark(),
+                    allocRate, elapsed));
 
             prevAllocBytes = allocBytes;
             prevYoungGc = metrics.youngGcCount();

@@ -18,7 +18,7 @@ mkdir -p build/classes dist
 # shellcheck disable=SC2046
 find src/main/java -name '*.java' > build/sources.txt
 "$JAVAC" -source 21 -target 21 \
-  --add-modules jdk.attach,jdk.jfr,jdk.management \
+  --add-modules jdk.attach,jdk.jfr,jdk.management,jdk.httpserver \
   --add-exports jdk.attach/sun.tools.attach=ALL-UNNAMED \
   -d build/classes @build/sources.txt
 
