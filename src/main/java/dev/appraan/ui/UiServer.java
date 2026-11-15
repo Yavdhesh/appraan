@@ -121,7 +121,7 @@ public final class UiServer implements AutoCloseable {
             String path = exchange.getRequestURI().getPath();
             switch (path) {
                 case "/", "/index.html" -> respond(exchange, 200, "text/html; charset=utf-8",
-                        Pages.dashboardHtml());
+                        Pages.dashboardHtml(snapshots.get()));
                 case "/flame" -> respond(exchange, 200, "text/html; charset=utf-8",
                         Pages.flamePage(snapshots.get()));
                 case "/api/summary" -> respond(exchange, 200, "application/json",

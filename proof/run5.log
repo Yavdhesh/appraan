@@ -1,0 +1,76 @@
+# Proof run 5 — Single-page modern dashboard (UI upgrade)
+
+- **Date:** 2026-11-15
+- **Machine:** this Linux VM (Temurin 24.0.2); target = bundled LoadApp
+  (G1, -Xmx256m), PID 4696 — the same proof discipline as runs 1–4.
+- **Code:** appraan working tree on top of 747698f (UI upgrade:
+  Pages.java rework, UiServer `/` passes the current snapshot,
+  RenderProof dashboard assertions).
+- **Artefacts:** everything in `proof/run5/` (fetched pages + API
+  payloads + the kernel fixture copy).
+
+## What was verified
+
+The user asked for (1) a modern look and (2) everything for one PID on
+the single `/` dashboard — no navigation to /flame or /kernel needed.
+Appraan ran in UI mode (`--seconds 0`) against live LoadApp with
+`--kernel-file proof/run5/kernel-fixture.json` (the M3b fixture from
+proof/run4, provenance unchanged; a 5 s touch loop emulated the agent
+rewriting its --out file, so the feed stayed LIVE: /api/kernel
+reported `available:true, source:"file", ageSeconds:1, stale:false,
+hint.state:"live"`).
+
+All routes fetched with curl:
+
+| Route | Result |
+|---|---|
+| `GET /` | 200, 46,217 bytes |
+| `GET /flame` | 200, 29,403 bytes |
+| `GET /kernel` | 200, 10,827 bytes |
+| `GET /api/summary` | 200 — alloc rate 160,760,318 B/s, heapUsed 6,272,000, MaxHeapSize 268,435,456 (the KPI row's data source) |
+| `GET /api/gc` | 200 |
+| `GET /api/cpu` | 200 |
+| `GET /api/cores` | 200 |
+| `GET /api/stacks` | 200, 3,062 bytes |
+| `GET /api/kernel` | 200 — fixture categories (File 4040 ops, avg 139.0 µs, max 17270.1 µs, kinds, hist) |
+
+Dashboard HTML assertions (28/28 PASS) — the fetched `/` page itself
+contains, inline:
+
+- header band with LIVE/STALE badge (`id="live-badge"`), KPI row
+  (`kpi-alloc`, `kpi-heap`, `kpi-young`, `kpi-old`, `kpi-cpu`);
+- GC card incl. G1 detail (`gc-young`, `g1-split`, …), CPU top-leaf
+  table, per-core table;
+- thread-stacks card (`id="stacks"`) fed by `fetch('/api/stacks')`;
+- **flame graph INLINE**: `<svg>` with **54 `class="frame"` elements**,
+  "CPU flame graph — 1706 samples", the hot leaf `LoadApp.isPrime`
+  present, Reset-zoom button + Refresh button, and the 15 s
+  `fetch('/flame')` in-place refresh;
+- kernel card (`kernel-body`, `kernel-cats`, `kernel-threads`,
+  `kernel-diag`) with units in words: "Off-CPU (times in milli
+  seconds)", "Avg latency (in micro seconds)", "Max latency
+  (in micro seconds)";
+- the 747698f LIVE/STALE behaviour intact in the page script:
+  `setInterval(refresh, 1000)` and
+  `staleAfterSec = Math.max(6, cadence * 2.5)`.
+
+Deep-link pages still work: `/kernel` server-renders the fixture
+(File/Disk categories, WrQueue wait reason, diagnostics line, units
+in words in its headings); `/flame` renders its SVG + frames +
+top-leaf table as before.
+
+## Not verified here
+
+- Interactive rendering/click-zoom in a real browser (no browser in
+  this VM): the zoom markup + script are the same proven mechanism as
+  /flame (proof run 2/4), now class-scoped and rebindable; the
+  in-browser click remains for the user's machine, as before.
+- No JSON endpoint changed: JsonApi.java is untouched in this change,
+  and the payloads above match the pre-upgrade shapes.
+
+## Checks
+
+`./build.sh` (JDK 24) clean; `./run-tests.sh` — **169/169 checks
+passed** (KernelCryptoTest 19, KernelDataTest 45, KernelFeedTest 26,
+G1StatsTest 26, StacksTest 16, FlameGraphTest 10, JsonTest 20,
+KernelIngestTest 7), identical to the pre-upgrade baseline.

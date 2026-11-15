@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Appraan — live JVM observer</title>
+<style>
+  :root {
+    --bg:#f1f5f9; --card:#ffffff; --ink:#0f172a; --muted:#64748b;
+    --line:#e2e8f0; --line-soft:#eef2f7; --accent:#2563eb;
+    --orange:#f97316; --red:#dc2626; --hdr:#0f172a;
+  }
+  * { box-sizing:border-box; }
+  body { background:var(--bg); color:var(--ink); margin:0;
+    -webkit-font-smoothing:antialiased;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; }
+  header.band { background:var(--hdr); color:#f8fafc; padding:.95rem 1.5rem;
+    display:flex; flex-wrap:wrap; align-items:center; gap:.45rem 1.4rem;
+    box-shadow:0 1px 4px rgba(15,23,42,.35); }
+  header.band .brand { font-size:1.35rem; font-weight:700; letter-spacing:.01em; }
+  header.band .tag { color:#94a3b8; font-size:.88rem; }
+  header.band .meta { color:#cbd5e1; font-size:.88rem; font-variant-numeric:tabular-nums; }
+  header.band a { color:#93c5fd; text-decoration:none; }
+  header.band a:hover { text-decoration:underline; }
+  header.band .spacer { flex:1; }
+  .badge { display:inline-flex; align-items:center; gap:.42rem; padding:.24rem .75rem;
+    border-radius:999px; font-size:.78rem; font-weight:700; letter-spacing:.06em;
+    background:#334155; color:#e2e8f0; }
+  .badge .dot { width:.55rem; height:.55rem; border-radius:50%; background:#94a3b8; }
+  .badge.on { background:#14532d; color:#bbf7d0; }
+  .badge.on .dot { background:#4ade80; }
+  .badge.stale { background:#713f12; color:#fde68a; }
+  .badge.stale .dot { background:#fbbf24; }
+  main { max-width:1440px; margin:0 auto; padding:1.25rem 1.5rem 2rem; }
+  .kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr));
+    gap:1rem; margin-bottom:1rem; }
+  .kpi { background:var(--card); border:1px solid var(--line); border-radius:12px;
+    padding:.9rem 1.1rem; box-shadow:0 1px 3px rgba(15,23,42,.07); }
+  .kpi .klabel { font-size:.72rem; font-weight:700; letter-spacing:.07em;
+    text-transform:uppercase; color:var(--muted); }
+  .kpi .kval { font-size:1.5rem; font-weight:650; margin-top:.18rem;
+    font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .kpi .ksub { font-size:.8rem; color:var(--muted); margin-top:.12rem;
+    font-variant-numeric:tabular-nums; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(340px,1fr)); gap:1rem; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px;
+    padding:1rem 1.15rem 1.1rem; box-shadow:0 1px 3px rgba(15,23,42,.07); }
+  .card.wide { grid-column:1 / -1; }
+  h2 { font-size:.82rem; margin:0 0 .7rem; color:#475569;
+    text-transform:uppercase; letter-spacing:.07em; }
+  h2 .plain { text-transform:none; letter-spacing:0; font-weight:500; }
+  h3 { font-size:.92rem; margin:1rem 0 .35rem; color:var(--ink); font-weight:650; }
+  h3:first-of-type { margin-top:.2rem; }
+  table { border-collapse:collapse; width:100%; font-size:.88rem; }
+  td, th { padding:.22rem .4rem; text-align:left; border-bottom:1px solid var(--line-soft); }
+  th { color:#64748b; font-weight:600; }
+  td.n, th.n { text-align:right; }
+  .mono, td, th { font-variant-numeric:tabular-nums; }
+  .big { font-size:1.2rem; font-weight:650; }
+  .bar { background:#e2e8f0; height:.65rem; border-radius:999px; overflow:hidden; }
+  .bar > div { background:var(--orange); height:100%; border-radius:999px; }
+  a { color:var(--accent); }
+  .err { color:var(--red); }
+  .hint { border:1px solid #f59e0b; background:#fffbeb; color:#92400e;
+    border-radius:8px; padding:.65rem .85rem; margin-bottom:.7rem; font-size:.9rem; }
+  .hint code { display:block; margin-top:.45rem; background:#fef3c7; color:#92400e;
+    border-radius:6px; padding:.45rem .6rem; white-space:pre-wrap; word-break:break-all; }
+  .dim { opacity:.55; }
+  .small { font-size:.8rem; color:var(--muted); }
+  .note { margin:.1rem 0 .5rem; }
+  .btn { font:inherit; font-size:.85rem; padding:.35rem .8rem; border-radius:8px;
+    border:1px solid #cbd5e1; background:#fff; color:var(--ink); cursor:pointer; }
+  .btn:hover { background:#f8fafc; border-color:#94a3b8; }
+  .flame-wrap svg { width:100%; height:auto; display:block; border-radius:8px; }
+  .stackpath { font-family:ui-monospace,Menlo,Consolas,monospace;
+    font-size:.74rem; color:#334155; word-break:break-all; }
+</style>
+</head>
+<body>
+<header class="band">
+  <span class="brand">Appraan</span>
+  <span class="tag">the life of your application, live</span>
+  <span class="spacer"></span>
+  <span class="meta">PID <span id="pid">…</span> · <span id="version">…</span></span>
+  <span class="meta">elapsed <span id="elapsed">…</span>s · updated <span id="updated">…</span></span>
+  <span class="badge" id="live-badge"><span class="dot"></span><span id="live-text">…</span></span>
+  <span class="meta"><a href="/flame">Flame graph</a> · <a href="/kernel">Kernel</a></span>
+</header>
+<main>
+<div class="kpis">
+  <div class="kpi"><div class="klabel">Allocation rate</div>
+    <div class="kval" id="kpi-alloc">…</div><div class="ksub" id="kpi-alloc-sub"> </div></div>
+  <div class="kpi"><div class="klabel">Heap used / max</div>
+    <div class="kval" id="kpi-heap">…</div><div class="ksub" id="kpi-heap-sub"> </div></div>
+  <div class="kpi"><div class="klabel">Young GCs</div>
+    <div class="kval" id="kpi-young">…</div><div class="ksub" id="kpi-young-sub"> </div></div>
+  <div class="kpi"><div class="klabel">Old GCs</div>
+    <div class="kval" id="kpi-old">…</div><div class="ksub" id="kpi-old-sub"> </div></div>
+  <div class="kpi"><div class="klabel">CPU (avg across cores)</div>
+    <div class="kval" id="kpi-cpu">…</div><div class="ksub" id="kpi-cpu-sub"> </div></div>
+</div>
+<div class="grid">
+  <section class="card"><h2>Target</h2>
+    <table>
+      <tr><th>GC collector</th><td id="gc-name">…</td></tr>
+      <tr><th>Java version</th><td id="java-version">…</td></tr>
+    </table>
+    <table id="flags" style="margin-top:.5rem"></table>
+    <p class="mono" id="cmdline" style="font-size:.78rem;color:#64748b;white-space:pre-wrap"></p>
+  </section>
+  <section class="card"><h2>Garbage collection</h2>
+    <table>
+      <tr><th>Young GCs</th><td class="n big" id="gc-young">…</td></tr>
+      <tr><th>Old GCs</th><td class="n big" id="gc-old">…</td></tr>
+      <tr><th>Pause total</th><td class="n" id="gc-pause-total">…</td></tr>
+      <tr><th>Pause max</th><td class="n" id="gc-pause-max">…</td></tr>
+      <tr><th>Last young GC</th><td class="n" id="gc-since-young">…</td></tr>
+      <tr><th>Last old GC</th><td class="n" id="gc-since-old">…</td></tr>
+      <tr><th>Promotion (est., G1)</th><td class="n" id="gc-promotion">…</td></tr>
+      <tr><th>G1 eden / survivor / old</th><td class="n" id="g1-split">…</td></tr>
+      <tr><th>Humongous regions</th><td class="n" id="g1-humongous">…</td></tr>
+    </table>
+  </section>
+  <section class="card"><h2>Allocation</h2>
+    <table>
+      <tr><th>Rate</th><td class="n big" id="alloc-rate">…</td></tr>
+      <tr><th>Total allocated</th><td class="n" id="alloc-total">…</td></tr>
+      <tr><th>Heap used (latest)</th><td class="n" id="alloc-heap">…</td></tr>
+    </table>
+    <p class="small" style="margin-top:.5rem">Source: <span id="alloc-source">…</span></p>
+  </section>
+  <section class="card"><h2>CPU — top leaf methods</h2>
+    <p class="note"><span id="cpu-samples">…</span> execution samples</p>
+    <table id="cpu-top"><tr><th class="n">Samples</th><th class="n">%</th><th>Method</th></tr></table>
+  </section>
+  <section class="card"><h2>Per-core CPU</h2>
+    <p class="note">Collector: <span id="cores-collector">…</span></p>
+    <table id="cores"></table>
+  </section>
+  <section class="card wide"><h2>Thread stacks — top collapsed stacks</h2>
+    <p class="note"><span id="stacks-total">…</span> samples with stacks · root-first call paths, hottest first</p>
+    <table id="stacks"></table>
+  </section>
+  <section class="card wide" id="flame-card"><h2>CPU flame graph <span class="plain">· <a href="/flame">full page →</a></span></h2>
+    <p class="note"><span id="flame-samples">1706 samples with stacks of 1706 execution samples · width ∝ samples · hover a frame for counts</span> · <span id="flame-updated">graph as rendered on page load, 2026-11-15T19:16:09.262692721Z</span></p>
+    <p><button class="btn zoom-reset" type="button">Reset zoom</button>
+      <button class="btn" id="flame-refresh" type="button">Refresh graph</button>
+      <span class="zoom-info small">Click a frame to zoom into it.</span></p>
+    <div class="flame-wrap" id="flame-box">
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="300" viewBox="0 0 1200 300" font-family="ui-monospace,Menlo,Consolas,monospace" font-size="11">
+<rect width="100%" height="100%" fill="#11151c"/>
+<text x="6" y="16" fill="#e8ecf1" font-size="13">CPU flame graph — 1706 samples</text>
+<g class="frame" data-name="all" data-x="0.000000" data-w="1.000000" data-depth="0"><title>all — 1706 samples (100.0%)</title><rect x="0.0" y="280" width="1199.5" height="15" fill="hsl(13,95%,53%)" rx="1"/><text x="3.0" y="292" fill="#10131a">all</text></g>
+<g class="frame" data-name="java.lang.Thread.run" data-x="0.000000" data-w="0.998828" data-depth="1"><title>java.lang.Thread.run — 1704 samples (99.9%)</title><rect x="0.0" y="264" width="1198.1" height="15" fill="hsl(39,92%,53%)" rx="1"/><text x="3.0" y="276" fill="#10131a">java.lang.Thread.run</text></g>
+<g class="frame" data-name="java.lang.Thread.runWith" data-x="0.000000" data-w="0.998828" data-depth="2"><title>java.lang.Thread.runWith — 1704 samples (99.9%)</title><rect x="0.0" y="248" width="1198.1" height="15" fill="hsl(49,82%,53%)" rx="1"/><text x="3.0" y="260" fill="#10131a">java.lang.Thread.runWith</text></g>
+<g class="frame" data-name="dev.appraan.demo.LoadApp$$Lambda.0x00007f6d1b000a18.run" data-x="0.000000" data-w="0.991208" data-depth="3"><title>dev.appraan.demo.LoadApp$$Lambda.0x00007f6d1b000a18.run — 1691 samples (99.1%)</title><rect x="0.0" y="232" width="1188.9" height="15" fill="hsl(44,89%,63%)" rx="1"/><text x="3.0" y="244" fill="#10131a">dev.appraan.demo.LoadApp$$Lambda.0x00007f6d1b000a18.run</text></g>
+<g class="frame" data-name="dev.appraan.demo.LoadApp.burnCpu" data-x="0.000000" data-w="0.991208" data-depth="4"><title>dev.appraan.demo.LoadApp.burnCpu — 1691 samples (99.1%)</title><rect x="0.0" y="216" width="1188.9" height="15" fill="hsl(49,93%,65%)" rx="1"/><text x="3.0" y="228" fill="#10131a">dev.appraan.demo.LoadApp.burnCpu</text></g>
+<g class="frame" data-name="dev.appraan.demo.LoadApp.isPrime" data-x="0.000000" data-w="0.988277" data-depth="5"><title>dev.appraan.demo.LoadApp.isPrime — 1686 samples (98.8%)</title><rect x="0.0" y="200" width="1185.4" height="15" fill="hsl(13,86%,59%)" rx="1"/><text x="3.0" y="212" fill="#10131a">dev.appraan.demo.LoadApp.isPrime</text></g>
+<g class="frame" data-name="dev.appraan.demo.LoadApp$$Lambda.0x00007f6d1b000c48.run" data-x="0.991208" data-w="0.007620" data-depth="3"><title>dev.appraan.demo.LoadApp$$Lambda.0x00007f6d1b000c48.run — 13 samples (0.8%)</title><rect x="1189.4" y="232" width="8.6" height="15" fill="hsl(39,79%,64%)" rx="1"/><text x="1192.4" y="244" fill="#10131a" style="display:none">dev.appraan.demo.LoadApp$$Lambda.0x00007f6d1b000c48.run</text></g>
+<g class="frame" data-name="dev.appraan.demo.LoadApp.churnAllocations" data-x="0.991208" data-w="0.007620" data-depth="4"><title>dev.appraan.demo.LoadApp.churnAllocations — 13 samples (0.8%)</title><rect x="1189.4" y="216" width="8.6" height="15" fill="hsl(31,91%,52%)" rx="1"/><text x="1192.4" y="228" fill="#10131a" style="display:none">dev.appraan.demo.LoadApp.churnAllocations</text></g>
+<g class="frame" data-name="java.util.ArrayList.add" data-x="0.991208" data-w="0.005862" data-depth="5"><title>java.util.ArrayList.add — 10 samples (0.6%)</title><rect x="1189.4" y="200" width="6.5" height="15" fill="hsl(46,83%,52%)" rx="1"/><text x="1192.4" y="212" fill="#10131a" style="display:none">java.util.ArrayList.add</text></g>
+<g class="frame" data-name="java.util.ArrayList.add" data-x="0.991208" data-w="0.005862" data-depth="6"><title>java.util.ArrayList.add — 10 samples (0.6%)</title><rect x="1189.4" y="184" width="6.5" height="15" fill="hsl(46,83%,52%)" rx="1"/><text x="1192.4" y="196" fill="#10131a" style="display:none">java.util.ArrayList.add</text></g>
+<g class="frame" data-name="java.util.ArrayList.grow" data-x="0.991208" data-w="0.005862" data-depth="7"><title>java.util.ArrayList.grow — 10 samples (0.6%)</title><rect x="1189.4" y="168" width="6.5" height="15" fill="hsl(42,90%,58%)" rx="1"/><text x="1192.4" y="180" fill="#10131a" style="display:none">java.util.ArrayList.grow</text></g>
+<g class="frame" data-name="java.util.ArrayList.grow" data-x="0.991208" data-w="0.005862" data-depth="8"><title>java.util.ArrayList.grow — 10 samples (0.6%)</title><rect x="1189.4" y="152" width="6.5" height="15" fill="hsl(42,90%,58%)" rx="1"/><text x="1192.4" y="164" fill="#10131a" style="display:none">java.util.ArrayList.grow</text></g>
+<g class="frame" data-name="dev.appraan.demo.LoadApp.sleepQuietly" data-x="0.997069" data-w="0.000586" data-depth="5"><title>dev.appraan.demo.LoadApp.sleepQuietly — 1 samples (0.1%)</title><rect x="1196.5" y="200" width="0.5" height="15" fill="hsl(10,80%,62%)" rx="1"/><text x="1199.5" y="212" fill="#10131a" style="display:none">dev.appraan.demo.LoadApp.sleepQuietly</text></g>
+<g class="frame" data-name="java.lang.Thread.sleep" data-x="0.997069" data-w="0.000586" data-depth="6"><title>java.lang.Thread.sleep — 1 samples (0.1%)</title><rect x="1196.5" y="184" width="0.5" height="15" fill="hsl(35,89%,58%)" rx="1"/><text x="1199.5" y="196" fill="#10131a" style="display:none">java.lang.Thread.sleep</text></g>
+<g class="frame" data-name="java.lang.Thread.sleepNanos" data-x="0.997069" data-w="0.000586" data-depth="7"><title>java.lang.Thread.sleepNanos — 1 samples (0.1%)</title><rect x="1196.5" y="168" width="0.5" height="15" fill="hsl(32,81%,64%)" rx="1"/><text x="1199.5" y="180" fill="#10131a" style="display:none">java.lang.Thread.sleepNanos</text></g>
+<g class="frame" data-name="java.lang.Thread.beforeSleep" data-x="0.997069" data-w="0.000586" data-depth="8"><title>java.lang.Thread.beforeSleep — 1 samples (0.1%)</title><rect x="1196.5" y="152" width="0.5" height="15" fill="hsl(8,85%,52%)" rx="1"/><text x="1199.5" y="164" fill="#10131a" style="display:none">java.lang.Thread.beforeSleep</text></g>
+<g class="frame" data-name="jdk.internal.event.ThreadSleepEvent.begin" data-x="0.997069" data-w="0.000586" data-depth="9"><title>jdk.internal.event.ThreadSleepEvent.begin — 1 samples (0.1%)</title><rect x="1196.5" y="136" width="0.5" height="15" fill="hsl(40,90%,58%)" rx="1"/><text x="1199.5" y="148" fill="#10131a" style="display:none">jdk.internal.event.ThreadSleepEvent.begin</text></g>
+<g class="frame" data-name="java.lang.invoke.Invokers$Holder.linkToTargetMethod" data-x="0.997655" data-w="0.000586" data-depth="5"><title>java.lang.invoke.Invokers$Holder.linkToTargetMethod — 1 samples (0.1%)</title><rect x="1197.2" y="200" width="0.5" height="15" fill="hsl(32,92%,55%)" rx="1"/><text x="1200.2" y="212" fill="#10131a" style="display:none">java.lang.invoke.Invokers$Holder.linkToTargetMethod</text></g>
+<g class="frame" data-name="java.lang.invoke.LambdaForm$MH.0x00007f6d1b001800.invoke" data-x="0.997655" data-w="0.000586" data-depth="6"><title>java.lang.invoke.LambdaForm$MH.0x00007f6d1b001800.invoke — 1 samples (0.1%)</title><rect x="1197.2" y="184" width="0.5" height="15" fill="hsl(37,94%,58%)" rx="1"/><text x="1200.2" y="196" fill="#10131a" style="display:none">java.lang.invoke.LambdaForm$MH.0x00007f6d1b001800.invoke</text></g>
+<g class="frame" data-name="java.lang.invoke.DirectMethodHandle$Holder.invokeSpecial" data-x="0.997655" data-w="0.000586" data-depth="7"><title>java.lang.invoke.DirectMethodHandle$Holder.invokeSpecial — 1 samples (0.1%)</title><rect x="1197.2" y="168" width="0.5" height="15" fill="hsl(51,89%,65%)" rx="1"/><text x="1200.2" y="180" fill="#10131a" style="display:none">java.lang.invoke.DirectMethodHandle$Holder.invokeSpecial</text></g>
+<g class="frame" data-name="java.lang.StringConcatHelper$Concat1.concat" data-x="0.997655" data-w="0.000586" data-depth="8"><title>java.lang.StringConcatHelper$Concat1.concat — 1 samples (0.1%)</title><rect x="1197.2" y="152" width="0.5" height="15" fill="hsl(10,80%,54%)" rx="1"/><text x="1200.2" y="164" fill="#10131a" style="display:none">java.lang.StringConcatHelper$Concat1.concat</text></g>
+<g class="frame" data-name="java.lang.StringConcatHelper.stringSize" data-x="0.997655" data-w="0.000586" data-depth="9"><title>java.lang.StringConcatHelper.stringSize — 1 samples (0.1%)</title><rect x="1197.2" y="136" width="0.5" height="15" fill="hsl(49,85%,55%)" rx="1"/><text x="1200.2" y="148" fill="#10131a" style="display:none">java.lang.StringConcatHelper.stringSize</text></g>
+<g class="frame" data-name="java.lang.StringConcatHelper.checkOverflow" data-x="0.997655" data-w="0.000586" data-depth="10"><title>java.lang.StringConcatHelper.checkOverflow — 1 samples (0.1%)</title><rect x="1197.2" y="120" width="0.5" height="15" fill="hsl(47,86%,56%)" rx="1"/><text x="1200.2" y="132" fill="#10131a" style="display:none">java.lang.StringConcatHelper.checkOverflow</text></g>
+<g class="frame" data-name="java.util.HashMap.put" data-x="0.998242" data-w="0.000586" data-depth="5"><title>java.util.HashMap.put — 1 samples (0.1%)</title><rect x="1197.9" y="200" width="0.5" height="15" fill="hsl(15,88%,55%)" rx="1"/><text x="1200.9" y="212" fill="#10131a" style="display:none">java.util.HashMap.put</text></g>
+<g class="frame" data-name="jdk.jfr.internal.dcmd.AbstractDCmd.execute" data-x="0.998828" data-w="0.001172" data-depth="1"><title>jdk.jfr.internal.dcmd.AbstractDCmd.execute — 2 samples (0.1%)</title><rect x="1198.6" y="264" width="0.9" height="15" fill="hsl(35,94%,56%)" rx="1"/><text x="1201.6" y="276" fill="#10131a" style="display:none">jdk.jfr.internal.dcmd.AbstractDCmd.execute</text></g>
+<g class="frame" data-name="jdk.jfr.internal.dcmd.DCmdDump.execute" data-x="0.998828" data-w="0.000586" data-depth="2"><title>jdk.jfr.internal.dcmd.DCmdDump.execute — 1 samples (0.1%)</title><rect x="1198.6" y="248" width="0.5" height="15" fill="hsl(21,91%,55%)" rx="1"/><text x="1201.6" y="260" fill="#10131a" style="display:none">jdk.jfr.internal.dcmd.DCmdDump.execute</text></g>
+<g class="frame" data-name="jdk.jfr.internal.dcmd.DCmdDump.dump" data-x="0.998828" data-w="0.000586" data-depth="3"><title>jdk.jfr.internal.dcmd.DCmdDump.dump — 1 samples (0.1%)</title><rect x="1198.6" y="232" width="0.5" height="15" fill="hsl(36,78%,65%)" rx="1"/><text x="1201.6" y="244" fill="#10131a" style="display:none">jdk.jfr.internal.dcmd.DCmdDump.dump</text></g>
+<g class="frame" data-name="jdk.jfr.internal.dcmd.DCmdDump.newSnapShot" data-x="0.998828" data-w="0.000586" data-depth="4"><title>jdk.jfr.internal.dcmd.DCmdDump.newSnapShot — 1 samples (0.1%)</title><rect x="1198.6" y="216" width="0.5" height="15" fill="hsl(16,84%,52%)" rx="1"/><text x="1201.6" y="228" fill="#10131a" style="display:none">jdk.jfr.internal.dcmd.DCmdDump.newSnapShot</text></g>
+<g class="frame" data-name="jdk.jfr.internal.PlatformRecording.newSnapshotClone" data-x="0.998828" data-w="0.000586" data-depth="5"><title>jdk.jfr.internal.PlatformRecording.newSnapshotClone — 1 samples (0.1%)</title><rect x="1198.6" y="200" width="0.5" height="15" fill="hsl(17,87%,56%)" rx="1"/><text x="1201.6" y="212" fill="#10131a" style="display:none">jdk.jfr.internal.PlatformRecording.newSnapshotClone</text></g>
+<g class="frame" data-name="jdk.jfr.internal.PlatformRecording.setSettings" data-x="0.998828" data-w="0.000586" data-depth="6"><title>jdk.jfr.internal.PlatformRecording.setSettings — 1 samples (0.1%)</title><rect x="1198.6" y="184" width="0.5" height="15" fill="hsl(21,89%,59%)" rx="1"/><text x="1201.6" y="196" fill="#10131a" style="display:none">jdk.jfr.internal.PlatformRecording.setSettings</text></g>
+<g class="frame" data-name="jdk.jfr.internal.PlatformRecording.setSettings" data-x="0.998828" data-w="0.000586" data-depth="7"><title>jdk.jfr.internal.PlatformRecording.setSettings — 1 samples (0.1%)</title><rect x="1198.6" y="168" width="0.5" height="15" fill="hsl(21,89%,59%)" rx="1"/><text x="1201.6" y="180" fill="#10131a" style="display:none">jdk.jfr.internal.PlatformRecording.setSettings</text></g>
+<g class="frame" data-name="jdk.jfr.internal.PlatformRecorder.updateSettings" data-x="0.998828" data-w="0.000586" data-depth="8"><title>jdk.jfr.internal.PlatformRecorder.updateSettings — 1 samples (0.1%)</title><rect x="1198.6" y="152" width="0.5" height="15" fill="hsl(29,88%,64%)" rx="1"/><text x="1201.6" y="164" fill="#10131a" style="display:none">jdk.jfr.internal.PlatformRecorder.updateSettings</text></g>
+<g class="frame" data-name="jdk.jfr.internal.PlatformRecorder.updateSettingsButIgnoreRecording" data-x="0.998828" data-w="0.000586" data-depth="9"><title>jdk.jfr.internal.PlatformRecorder.updateSettingsButIgnoreRecording — 1 samples (0.1%)</title><rect x="1198.6" y="136" width="0.5" height="15" fill="hsl(31,80%,60%)" rx="1"/><text x="1201.6" y="148" fill="#10131a" style="display:none">jdk.jfr.internal.PlatformRecorder.updateSettingsButIgnoreRecording</text></g>
+<g class="frame" data-name="jdk.jfr.internal.MetadataRepository.setSettings" data-x="0.998828" data-w="0.000586" data-depth="10"><title>jdk.jfr.internal.MetadataRepository.setSettings — 1 samples (0.1%)</title><rect x="1198.6" y="120" width="0.5" height="15" fill="hsl(24,80%,62%)" rx="1"/><text x="1201.6" y="132" fill="#10131a" style="display:none">jdk.jfr.internal.MetadataRepository.setSettings</text></g>
+<g class="frame" data-name="jdk.jfr.internal.SettingsManager.setSettings" data-x="0.998828" data-w="0.000586" data-depth="11"><title>jdk.jfr.internal.SettingsManager.setSettings — 1 samples (0.1%)</title><rect x="1198.6" y="104" width="0.5" height="15" fill="hsl(41,92%,52%)" rx="1"/><text x="1201.6" y="116" fill="#10131a" style="display:none">jdk.jfr.internal.SettingsManager.setSettings</text></g>
+<g class="frame" data-name="jdk.jfr.internal.MetadataRepository.getEventControls" data-x="0.998828" data-w="0.000586" data-depth="12"><title>jdk.jfr.internal.MetadataRepository.getEventControls — 1 samples (0.1%)</title><rect x="1198.6" y="88" width="0.5" height="15" fill="hsl(47,84%,62%)" rx="1"/><text x="1201.6" y="100" fill="#10131a" style="display:none">jdk.jfr.internal.MetadataRepository.getEventControls</text></g>
+<g class="frame" data-name="java.util.ArrayList.addAll" data-x="0.998828" data-w="0.000586" data-depth="13"><title>java.util.ArrayList.addAll — 1 samples (0.1%)</title><rect x="1198.6" y="72" width="0.5" height="15" fill="hsl(51,90%,52%)" rx="1"/><text x="1201.6" y="84" fill="#10131a" style="display:none">java.util.ArrayList.addAll</text></g>
+<g class="frame" data-name="java.util.HashMap$Values.toArray" data-x="0.998828" data-w="0.000586" data-depth="14"><title>java.util.HashMap$Values.toArray — 1 samples (0.1%)</title><rect x="1198.6" y="56" width="0.5" height="15" fill="hsl(28,93%,55%)" rx="1"/><text x="1201.6" y="68" fill="#10131a" style="display:none">java.util.HashMap$Values.toArray</text></g>
+<g class="frame" data-name="java.util.HashMap.valuesToArray" data-x="0.998828" data-w="0.000586" data-depth="15"><title>java.util.HashMap.valuesToArray — 1 samples (0.1%)</title><rect x="1198.6" y="40" width="0.5" height="15" fill="hsl(40,90%,52%)" rx="1"/><text x="1201.6" y="52" fill="#10131a" style="display:none">java.util.HashMap.valuesToArray</text></g>
+<g class="frame" data-name="jdk.jfr.internal.dcmd.DCmdStart.execute" data-x="0.999414" data-w="0.000586" data-depth="2"><title>jdk.jfr.internal.dcmd.DCmdStart.execute — 1 samples (0.1%)</title><rect x="1199.3" y="248" width="0.5" height="15" fill="hsl(47,95%,60%)" rx="1"/><text x="1202.3" y="260" fill="#10131a" style="display:none">jdk.jfr.internal.dcmd.DCmdStart.execute</text></g>
+<g class="frame" data-name="jdk.jfr.Recording.start" data-x="0.999414" data-w="0.000586" data-depth="3"><title>jdk.jfr.Recording.start — 1 samples (0.1%)</title><rect x="1199.3" y="232" width="0.5" height="15" fill="hsl(28,93%,53%)" rx="1"/><text x="1202.3" y="244" fill="#10131a" style="display:none">jdk.jfr.Recording.start</text></g>
+<g class="frame" data-name="jdk.jfr.internal.PlatformRecording.start" data-x="0.999414" data-w="0.000586" data-depth="4"><title>jdk.jfr.internal.PlatformRecording.start — 1 samples (0.1%)</title><rect x="1199.3" y="216" width="0.5" height="15" fill="hsl(34,86%,64%)" rx="1"/><text x="1202.3" y="228" fill="#10131a" style="display:none">jdk.jfr.internal.PlatformRecording.start</text></g>
+<g class="frame" data-name="jdk.jfr.internal.PlatformRecorder.start" data-x="0.999414" data-w="0.000586" data-depth="5"><title>jdk.jfr.internal.PlatformRecorder.start — 1 samples (0.1%)</title><rect x="1199.3" y="200" width="0.5" height="15" fill="hsl(29,80%,57%)" rx="1"/><text x="1202.3" y="212" fill="#10131a" style="display:none">jdk.jfr.internal.PlatformRecorder.start</text></g>
+<g class="frame" data-name="jdk.jfr.internal.PlatformRecorder.updateSettings" data-x="0.999414" data-w="0.000586" data-depth="6"><title>jdk.jfr.internal.PlatformRecorder.updateSettings — 1 samples (0.1%)</title><rect x="1199.3" y="184" width="0.5" height="15" fill="hsl(29,88%,64%)" rx="1"/><text x="1202.3" y="196" fill="#10131a" style="display:none">jdk.jfr.internal.PlatformRecorder.updateSettings</text></g>
+<g class="frame" data-name="jdk.jfr.internal.PlatformRecorder.updateSettingsButIgnoreRecording" data-x="0.999414" data-w="0.000586" data-depth="7"><title>jdk.jfr.internal.PlatformRecorder.updateSettingsButIgnoreRecording — 1 samples (0.1%)</title><rect x="1199.3" y="168" width="0.5" height="15" fill="hsl(31,80%,60%)" rx="1"/><text x="1202.3" y="180" fill="#10131a" style="display:none">jdk.jfr.internal.PlatformRecorder.updateSettingsButIgnoreRecording</text></g>
+<g class="frame" data-name="jdk.jfr.internal.MetadataRepository.setSettings" data-x="0.999414" data-w="0.000586" data-depth="8"><title>jdk.jfr.internal.MetadataRepository.setSettings — 1 samples (0.1%)</title><rect x="1199.3" y="152" width="0.5" height="15" fill="hsl(24,80%,62%)" rx="1"/><text x="1202.3" y="164" fill="#10131a" style="display:none">jdk.jfr.internal.MetadataRepository.setSettings</text></g>
+<g class="frame" data-name="jdk.jfr.internal.SettingsManager.setSettings" data-x="0.999414" data-w="0.000586" data-depth="9"><title>jdk.jfr.internal.SettingsManager.setSettings — 1 samples (0.1%)</title><rect x="1199.3" y="136" width="0.5" height="15" fill="hsl(41,92%,52%)" rx="1"/><text x="1202.3" y="148" fill="#10131a" style="display:none">jdk.jfr.internal.SettingsManager.setSettings</text></g>
+<g class="frame" data-name="jdk.jfr.internal.SettingsManager.updateRetransform" data-x="0.999414" data-w="0.000586" data-depth="10"><title>jdk.jfr.internal.SettingsManager.updateRetransform — 1 samples (0.1%)</title><rect x="1199.3" y="120" width="0.5" height="15" fill="hsl(36,83%,64%)" rx="1"/><text x="1202.3" y="132" fill="#10131a" style="display:none">jdk.jfr.internal.SettingsManager.updateRetransform</text></g>
+<g class="frame" data-name="jdk.jfr.internal.JVM.retransformClasses" data-x="0.999414" data-w="0.000586" data-depth="11"><title>jdk.jfr.internal.JVM.retransformClasses — 1 samples (0.1%)</title><rect x="1199.3" y="104" width="0.5" height="15" fill="hsl(38,85%,60%)" rx="1"/><text x="1202.3" y="116" fill="#10131a" style="display:none">jdk.jfr.internal.JVM.retransformClasses</text></g>
+<g class="frame" data-name="jdk.jfr.internal.JVMUpcalls.onRetransform" data-x="0.999414" data-w="0.000586" data-depth="12"><title>jdk.jfr.internal.JVMUpcalls.onRetransform — 1 samples (0.1%)</title><rect x="1199.3" y="88" width="0.5" height="15" fill="hsl(29,95%,57%)" rx="1"/><text x="1202.3" y="100" fill="#10131a" style="display:none">jdk.jfr.internal.JVMUpcalls.onRetransform</text></g>
+<g class="frame" data-name="jdk.jfr.internal.EventInstrumentation.&lt;init&gt;" data-x="0.999414" data-w="0.000586" data-depth="13"><title>jdk.jfr.internal.EventInstrumentation.&lt;init&gt; — 1 samples (0.1%)</title><rect x="1199.3" y="72" width="0.5" height="15" fill="hsl(28,85%,55%)" rx="1"/><text x="1202.3" y="84" fill="#10131a" style="display:none">jdk.jfr.internal.EventInstrumentation.&lt;init&gt;</text></g>
+<g class="frame" data-name="jdk.jfr.internal.EventInstrumentation.buildFieldDescs" data-x="0.999414" data-w="0.000586" data-depth="14"><title>jdk.jfr.internal.EventInstrumentation.buildFieldDescs — 1 samples (0.1%)</title><rect x="1199.3" y="56" width="0.5" height="15" fill="hsl(28,78%,55%)" rx="1"/><text x="1202.3" y="68" fill="#10131a" style="display:none">jdk.jfr.internal.EventInstrumentation.buildFieldDescs</text></g>
+<g class="frame" data-name="jdk.jfr.internal.util.Bytecode$FieldDesc.of" data-x="0.999414" data-w="0.000586" data-depth="15"><title>jdk.jfr.internal.util.Bytecode$FieldDesc.of — 1 samples (0.1%)</title><rect x="1199.3" y="40" width="0.5" height="15" fill="hsl(9,88%,65%)" rx="1"/><text x="1202.3" y="52" fill="#10131a" style="display:none">jdk.jfr.internal.util.Bytecode$FieldDesc.of</text></g>
+<g class="frame" data-name="jdk.jfr.internal.util.Bytecode$FieldDesc.&lt;init&gt;" data-x="0.999414" data-w="0.000586" data-depth="16"><title>jdk.jfr.internal.util.Bytecode$FieldDesc.&lt;init&gt; — 1 samples (0.1%)</title><rect x="1199.3" y="24" width="0.5" height="15" fill="hsl(44,84%,61%)" rx="1"/><text x="1202.3" y="36" fill="#10131a" style="display:none">jdk.jfr.internal.util.Bytecode$FieldDesc.&lt;init&gt;</text></g>
+</svg>
+    </div>
+  </section>
+  <section class="card wide"><h2>Kernel — appraanagent metrics <span class="plain">· <a href="/kernel">full page →</a></span></h2>
+    <div id="kernel-hint"></div>
+    <div id="kernel-body">
+      <p class="small note" id="kernel-host"></p>
+      <h3 class="ksec">Off-CPU (times in milli seconds)</h3>
+      <p class="note" id="kernel-offcpu"></p>
+      <table id="kernel-reasons"></table>
+      <table id="kernel-threads" style="margin-top:.5rem"></table>
+      <h3 class="ksec">Kernel operations by category (latency in micro seconds)</h3>
+      <table id="kernel-cats"></table>
+      <div id="kernel-hist" class="small" style="margin-top:.4rem"></div>
+      <p class="small" id="kernel-diag" style="margin-top:.4rem"></p>
+      <h3 class="ksec">TCP connections</h3>
+      <p class="note" id="kernel-tcp"></p>
+      <table id="kernel-recent"></table>
+      <div id="kernel-procio" style="margin-top:.6rem"></div>
+    </div>
+  </section>
+</div>
+<p class="err" id="err"></p>
+</main>
+<script>
+let flameZoomReset = null;
+function initFlameZoom(scope) {
+  const frames = Array.from(scope.querySelectorAll('g.frame'));
+  if (!frames.length) { flameZoomReset = null; return; }
+  const svg = scope.querySelector('svg');
+  const W = svg.viewBox.baseVal.width;
+  const info = scope.querySelector('.zoom-info');
+  function fitLabel(name, wPx) {
+    const maxChars = Math.floor(wPx / 6.5);
+    return (name.length > maxChars && maxChars > 3)
+      ? name.substring(0, maxChars - 1) + '…' : name;
+  }
+  function applyZoom(zx, zw, frame) {
+    const scale = 1 / zw;
+    for (const g of frames) {
+      const x = parseFloat(g.dataset.x), w = parseFloat(g.dataset.w);
+      const inside = x >= zx - 1e-9 && (x + w) <= (zx + zw) + 1e-9;
+      const rect = g.querySelector('rect');
+      const text = g.querySelector('text');
+      if (!inside) { g.style.display = 'none'; continue; }
+      g.style.display = '';
+      const nx = (x - zx) * scale * W;
+      const nw = w * scale * W;
+      rect.setAttribute('x', nx.toFixed(1));
+      rect.setAttribute('width', Math.max(nw - 0.5, 0.5).toFixed(1));
+      if (text) {
+        text.setAttribute('x', (nx + 3).toFixed(1));
+        if (nw > 32) {
+          text.style.display = '';
+          text.textContent = fitLabel(g.dataset.name, nw);
+        } else {
+          text.style.display = 'none';
+        }
+      }
+    }
+    if (info) {
+      info.textContent = frame
+        ? 'Zoomed: ' + frame.dataset.name + ' — '
+          + (parseFloat(frame.dataset.w) * 100).toFixed(1) + '% of samples'
+        : 'Click a frame to zoom into it.';
+    }
+  }
+  for (const g of frames) {
+    g.style.cursor = 'pointer';
+    g.addEventListener('click', () =>
+      applyZoom(parseFloat(g.dataset.x), parseFloat(g.dataset.w), g));
+  }
+  flameZoomReset = () => applyZoom(0, 1, null);
+  const reset = scope.querySelector('.zoom-reset');
+  if (reset && !reset.dataset.zoomBound) {
+    reset.dataset.zoomBound = '1';
+    reset.addEventListener('click', () => { if (flameZoomReset) flameZoomReset(); });
+  }
+}
+const $ = id => document.getElementById(id);
+const fmtBytes = b => {
+  if (b < 0) return 'n/a';
+  const u = ['B','KiB','MiB','GiB','TiB']; let v = b, i = 0;
+  while (v >= 1024 && i < u.length - 1) { v /= 1024; i++; }
+  return (i === 0 ? v : v.toFixed(1)) + ' ' + u[i];
+};
+function rows(table, list) {
+  table.replaceChildren();
+  for (const cells of list) {
+    const tr = document.createElement('tr');
+    for (const c of cells) {
+      const td = document.createElement('td');
+      if (c.num) td.className = 'n';
+      td.textContent = c.text;
+      tr.appendChild(td);
+    }
+    table.appendChild(tr);
+  }
+}
+function renderTable(table, headers, list) {
+  table.replaceChildren();
+  const hr = document.createElement('tr');
+  for (const h of headers) {
+    const th = document.createElement('th');
+    if (h.num) th.className = 'n';
+    th.textContent = h.text;
+    hr.appendChild(th);
+  }
+  table.appendChild(hr);
+  for (const cells of list) {
+    const tr = document.createElement('tr');
+    for (const c of cells) {
+      const td = document.createElement('td');
+      td.className = [c.num ? 'n' : '', c.cls || ''].join(' ').trim();
+      td.textContent = c.text;
+      tr.appendChild(td);
+    }
+    table.appendChild(tr);
+  }
+}
+function renderKernel(k) {
+  const hintBox = $('kernel-hint');
+  hintBox.replaceChildren();
+  const body = $('kernel-body');
+  if (k.hint && k.hint.state !== 'live') {
+    const box = document.createElement('div');
+    box.className = 'hint';
+    const msg = document.createElement('div');
+    msg.textContent = k.hint.message || '';
+    box.appendChild(msg);
+    if (k.hint.command) {
+      const code = document.createElement('code');
+      code.textContent = k.hint.command;
+      box.appendChild(code);
+    }
+    hintBox.appendChild(box);
+  }
+  body.classList.toggle('dim', !!k.stale);
+  const secs = document.querySelectorAll('.ksec');
+  if (!k.available) {
+    secs.forEach(el => el.style.display = 'none');
+    $('kernel-host').textContent = '';
+    $('kernel-offcpu').textContent = '';
+    $('kernel-reasons').replaceChildren();
+    $('kernel-threads').replaceChildren();
+    $('kernel-cats').replaceChildren();
+    $('kernel-hist').textContent = '';
+    $('kernel-diag').textContent = '';
+    $('kernel-tcp').textContent = '';
+    $('kernel-recent').replaceChildren();
+  } else {
+    secs.forEach(el => el.style.display = '');
+    const kd = k.kernel, oc = kd.offCpu;
+    $('kernel-host').textContent = kd.host
+      ? 'host: ' + kd.host + (kd.labels
+          ? ' · ' + Object.entries(kd.labels).map(([a, b]) => a + '=' + b).join(' · ')
+          : '')
+      : '';
+    const topReason = oc.reasons.length ? oc.reasons[0] : null;
+    $('kernel-offcpu').textContent =
+      'Off-CPU ' + oc.offCpuPct + '% · on ' + Math.round(oc.onCpuMs) + ' ms · off '
+      + Math.round(oc.offCpuMs) + ' ms · ' + oc.episodes + ' episodes · max '
+      + Math.round(oc.maxEpisodeMs) + ' ms'
+      + (topReason ? ' · top reason ' + topReason.name + ' ' + topReason.pct + '%' : '')
+      + ' · source ' + k.source + ', ' + k.ageSeconds + 's old' + (k.stale ? ' (stale)' : '');
+    renderTable($('kernel-reasons'),
+      [{text: 'Wait reason'}, {text: 'Episodes', num: true},
+       {text: 'Total (in milli seconds)', num: true}, {text: 'Share', num: true}],
+      oc.reasons.map(r => [
+        {text: r.name},
+        {text: String(r.episodes), num: true},
+        {text: String(Math.round(r.totalMs)), num: true},
+        {text: r.pct + '%', num: true}]));
+    renderTable($('kernel-threads'),
+      [{text: 'Thread'}, {text: 'Episodes', num: true},
+       {text: 'Off-CPU (in milli seconds)', num: true},
+       {text: 'Max episode (in milli seconds)', num: true},
+       {text: 'On-CPU (in milli seconds)', num: true},
+       {text: 'Off %', num: true}, {text: ''}],
+      oc.threads.map(t => [
+        {text: 'tid ' + t.tid},
+        {text: String(t.episodes), num: true},
+        {text: String(Math.round(t.offCpuMs)), num: true},
+        {text: String(Math.round(t.maxMs)), num: true},
+        {text: String(Math.round(t.onCpuMs)), num: true},
+        {text: t.offCpuPct + '%', num: true},
+        {text: t.partial ? 'partial' : ''}]));
+    renderTable($('kernel-cats'),
+      [{text: 'Category'}, {text: 'Count', num: true},
+       {text: 'With latency', num: true},
+       {text: 'Avg latency (in micro seconds)', num: true},
+       {text: 'Max latency (in micro seconds)', num: true},
+       {text: 'Kinds'}],
+      kd.ops.categories.map(c => [
+        {text: c.name},
+        {text: String(c.count), num: true},
+        {text: String(c.latOps), num: true},
+        {text: c.avgUs === null ? '—' : String(c.avgUs), num: true},
+        {text: c.maxUs === null ? '—' : String(c.maxUs), num: true},
+        {text: Object.entries(c.kinds).map(([a, b]) => a + ' ' + b).join(' · ')}]));
+    const histLines = [];
+    for (const c of kd.ops.categories) {
+      if (c.hist) {
+        histLines.push(c.name + ' hist: ' + Object.entries(c.hist)
+          .filter(([, v]) => v > 0).map(([b, v]) => b + ' ' + v).join(' · '));
+      }
+    }
+    $('kernel-hist').textContent = histLines.join('  |  ');
+    const dg = kd.ops.diagnostics;
+    $('kernel-diag').textContent = 'Diagnostics: pending file ops ' + dg.pendingFileOps
+      + ' · unmatched completions ' + dg.unmatchedCompletions
+      + ' · duplicate starts ' + dg.duplicateStarts
+      + ' · evicted pending ' + dg.evictedPending;
+    $('kernel-tcp').textContent =
+      'TCP: ' + kd.tcp.closedTotal + ' closed · TX ' + fmtBytes(kd.tcp.txBytes)
+      + ' · RX ' + fmtBytes(kd.tcp.rxBytes) + ' · ' + kd.tcp.stillOpen + ' still open'
+      + ' · ' + kd.tcp.unmatchedDisconnects + ' unmatched disconnects';
+    renderTable($('kernel-recent'),
+      [{text: 'Process'}, {text: 'Local → remote'},
+       {text: 'TX/RX', num: true}, {text: 'Lifetime (in milli seconds)', num: true}],
+      kd.tcp.recent.map(cn => [
+        {text: cn.comm || ''},
+        {text: cn.laddr + ':' + cn.lport + ' → ' + cn.raddr + ':' + cn.rport},
+        {text: cn.txKb + '/' + cn.rxKb + ' KB', num: true},
+        {text: cn.ms + ' ms', num: true}]));
+  }
+  const pi = $('kernel-procio');
+  pi.replaceChildren();
+  if (k.procIo) {
+    const p = document.createElement('p');
+    p.className = 'small';
+    p.textContent = 'Linux /proc process I/O (cumulative since process start): read '
+      + fmtBytes(k.procIo.readBytes) + ' · write ' + fmtBytes(k.procIo.writeBytes)
+      + ' · syscalls r/w ' + k.procIo.syscr + '/' + k.procIo.syscw;
+    pi.appendChild(p);
+  }
+}
+async function refreshFlame() {
+  try {
+    const html = await fetch('/flame').then(r => r.text());
+    const fresh = new DOMParser().parseFromString(html, 'text/html').querySelector('svg');
+    const box = $('flame-box');
+    if (!fresh || !box) return;
+    box.replaceChildren(document.importNode(fresh, true));
+    initFlameZoom($('flame-card'));
+    $('flame-updated').textContent = 'graph updated ' + new Date().toLocaleTimeString();
+  } catch (e) { /* keep the graph already on the page */ }
+}
+async function refresh() {
+  try {
+    const [summary, gc, cpu, cores, kernel, stacks] = await Promise.all([
+      fetch('/api/summary').then(r => r.json()),
+      fetch('/api/gc').then(r => r.json()),
+      fetch('/api/cpu').then(r => r.json()),
+      fetch('/api/cores').then(r => r.json()),
+      fetch('/api/kernel').then(r => r.json()),
+      fetch('/api/stacks').then(r => r.json()).catch(() => null)]);
+    $('err').textContent = '';
+    const capMs = Date.parse(summary.capturedAt);
+    const ageSec = (Date.now() - capMs) / 1000;
+    // LIVE/STALE is judged against the observer's own capture
+    // cadence (learned from successive snapshots; the default
+    // interval is 5s), not a fixed 3s: a healthy observer must
+    // not flap STALE between its own snapshots. STALE means
+    // roughly 2.5 missed captures.
+    if (window._lastCapMs && capMs > window._lastCapMs) {
+      window._cadenceSec = (capMs - window._lastCapMs) / 1000;
+    }
+    if (capMs !== window._lastCapMs) window._lastCapMs = capMs;
+    const staleAfterSec = Math.max(6, (window._cadenceSec || 5) * 2.5);
+    const badge = $('live-badge');
+    if (ageSec < staleAfterSec) { badge.className = 'badge on'; $('live-text').textContent = 'LIVE'; }
+    else { badge.className = 'badge stale'; $('live-text').textContent = 'STALE'; }
+    $('updated').textContent = new Date(summary.capturedAt).toLocaleTimeString()
+      + (ageSec >= 1 ? ' (' + Math.floor(ageSec) + 's ago)' : '');
+    renderKernel(kernel);
+    $('pid').textContent = summary.pid;
+    $('version').textContent = summary.version;
+    $('elapsed').textContent = summary.elapsedSeconds;
+    $('kpi-alloc').textContent = fmtBytes(summary.allocation.rateBytesPerSec) + '/s';
+    $('kpi-alloc-sub').textContent = 'total ' + fmtBytes(summary.allocation.totalBytes) + ' allocated';
+    const maxHeap = parseInt(summary.flags.MaxHeapSize, 10);
+    $('kpi-heap').textContent = fmtBytes(summary.allocation.heapUsedBytes)
+      + (Number.isFinite(maxHeap) ? ' / ' + fmtBytes(maxHeap) : '');
+    $('kpi-heap-sub').textContent = Number.isFinite(maxHeap) && maxHeap > 0
+      ? Math.round(100 * summary.allocation.heapUsedBytes / maxHeap) + '% of max heap'
+      : 'heap used (latest snapshot)';
+    $('kpi-young').textContent = gc.young.count;
+    $('kpi-young-sub').textContent = 'last ' + gc.young.sinceLast;
+    $('kpi-old').textContent = gc.old.count;
+    $('kpi-old-sub').textContent = 'last ' + gc.old.sinceLast
+      + ' · pause max ' + gc.pauses.maxMs + ' ms';
+    $('gc-name').textContent = summary.gcCollector;
+    $('java-version').textContent = summary.javaVersion;
+    $('cmdline').textContent = summary.commandLine;
+    rows($('flags'), Object.entries(summary.flags)
+      .map(([k, v]) => [{text: k}, {text: String(v), num: true}]));
+    $('gc-young').textContent = gc.young.count;
+    $('gc-old').textContent = gc.old.count;
+    $('gc-pause-total').textContent = gc.pauses.totalMs + ' ms';
+    $('gc-pause-max').textContent = gc.pauses.maxMs + ' ms';
+    $('gc-since-young').textContent = gc.young.sinceLast;
+    $('gc-since-old').textContent = gc.old.sinceLast;
+    $('gc-promotion').textContent = gc.g1.available
+      ? fmtBytes(gc.promotion.bytes) + ' over ' + gc.promotion.gcCount + ' young GCs'
+      : 'n/a (non-G1 collector)';
+    $('g1-split').textContent = gc.g1.available
+      ? fmtBytes(gc.g1.edenUsedBytes) + ' / ' + fmtBytes(gc.g1.survivorUsedBytes)
+        + ' / ' + fmtBytes(gc.g1.oldUsedBytes) + ' · ' + gc.g1.regions + ' regions'
+      : 'n/a (non-G1 collector)';
+    $('g1-humongous').textContent = gc.g1.available
+      ? gc.g1.humongous.regions + ' regions, ' + fmtBytes(gc.g1.humongous.usedBytes) + ' used'
+      : 'n/a (non-G1 collector)';
+    $('alloc-rate').textContent = fmtBytes(summary.allocation.rateBytesPerSec) + '/s';
+    $('alloc-total').textContent = fmtBytes(summary.allocation.totalBytes);
+    $('alloc-heap').textContent = fmtBytes(summary.allocation.heapUsedBytes);
+    $('alloc-source').textContent = summary.allocation.source;
+    $('cpu-samples').textContent = cpu.executionSamples;
+    $('flame-samples').textContent = cpu.stackSamples + ' samples with stacks of '
+      + cpu.executionSamples + ' execution samples · width ∝ samples · hover a frame for counts';
+    renderTable($('cpu-top'),
+      [{text: 'Samples', num: true}, {text: '%', num: true}, {text: 'Method'}],
+      cpu.topLeaf.map(e => [
+        {text: String(e.samples), num: true},
+        {text: String(e.percent), num: true},
+        {text: e.method}]));
+    $('cores-collector').textContent = cores.collector;
+    const avgBusy = cores.cores.length
+      ? cores.cores.reduce((a, c) => a + c.busyPercent, 0) / cores.cores.length : 0;
+    $('kpi-cpu').textContent = avgBusy.toFixed(1) + '%';
+    $('kpi-cpu-sub').textContent = cores.cores.length + ' cores · ' + cores.collector;
+    const ct = $('cores'); ct.replaceChildren();
+    for (const c of cores.cores) {
+      const tr = document.createElement('tr');
+      const a = document.createElement('td'); a.textContent = 'core ' + c.core;
+      const b = document.createElement('td'); b.style.width = '60%';
+      const bar = document.createElement('div'); bar.className = 'bar';
+      const fill = document.createElement('div'); fill.style.width = c.busyPercent + '%';
+      bar.appendChild(fill); b.appendChild(bar);
+      const d = document.createElement('td'); d.className = 'n'; d.textContent = c.busyPercent + '%';
+      tr.append(a, b, d); ct.appendChild(tr);
+    }
+    if (stacks) {
+      $('stacks-total').textContent = stacks.totalSamples;
+      const total = stacks.totalSamples || 1;
+      renderTable($('stacks'),
+        [{text: 'Samples', num: true}, {text: '%', num: true},
+         {text: 'Stack (root → leaf)'}],
+        stacks.stacks.slice(0, 10).map(e => [
+          {text: String(e.samples), num: true},
+          {text: (e.samples * 100 / total).toFixed(1), num: true},
+          {text: e.stack.split(';').join(' → '), cls: 'stackpath'}]));
+    }
+  } catch (e) {
+    $('err').textContent = 'Live update failed (is Appraan still running?): ' + e;
+  }
+}
+initFlameZoom(document.getElementById('flame-card'));
+$('flame-refresh').addEventListener('click', refreshFlame);
+refresh();
+setInterval(refresh, 1000);
+setInterval(refreshFlame, 15000);
+</script>
+</body>
+</html>

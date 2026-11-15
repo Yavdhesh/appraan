@@ -1,5 +1,34 @@
 # Appraan — Status
 
+UI UPGRADE — SINGLE-PAGE MODERN DASHBOARD: COMPLETE (2026-11-15).
+At the user's request the web UI was modernised and consolidated:
+everything for one PID now lives on the single `/` dashboard — no
+navigation needed to see any value.
+- [x] Modern look: one shared stylesheet for all pages — light slate
+      theme, white cards (rounded corners, subtle shadows), dark slate
+      header band with the Appraan name + PID + a LIVE/STALE badge
+      pill, and a KPI card row (allocation rate, heap used/max, young
+      GC count, old GC count, CPU avg across cores). Still zero
+      dependencies and fully offline: inline CSS/JS, system fonts.
+- [x] Single page: KPI row + Target / GC (incl. G1 detail) /
+      Allocation / CPU top-leaf / per-core cards, a thread-stacks card
+      (top collapsed stacks from `/api/stacks`), the **flame graph
+      inline** (server-rendered SVG, click-to-zoom + Reset, refreshed
+      in place from `/flame` every 15 s), and the **kernel card at
+      full /kernel parity** (op categories with kinds + latency-op
+      counts + diagnostics, off-CPU reasons AND top threads, TCP
+      incl. unmatched disconnects). Latency/time units are spelled
+      in words in the headings ("latency in micro seconds",
+      "times in milli seconds").
+- [x] Unchanged by design: every JSON endpoint (JsonApi untouched),
+      the `/flame` and `/kernel` deep-link pages (restyled, same
+      content), the 1 s polling, the cadence-based LIVE/STALE rule
+      (747698f), kernel hint/empty/stale behaviour (~15 s).
+- [x] Verified: build + 169/169 checks on JDK 24 (baseline-identical);
+      proof run 5 (`proof/run5.log`) — live LoadApp + kernel fixture,
+      curl-verified that `/` contains every section inline (inline
+      flame SVG: 54 frames, 1,706 samples, hot leaf isPrime).
+
 Milestone 3b — KERNEL COLLECTOR INTEGRATION: COMPLETE (2026-11-13).
 The appraan-windows utilities become Appraan's Windows collector layer
 via the **appraanagent** sidecar (appraan-windows commits 7c48a2b,

@@ -112,7 +112,13 @@ public final class RenderProof {
         System.out.println("in-process HTTP round-trip: " + (httpOk ? "WORKED" : "did not work"));
 
         // Renderer artefacts (the exact functions the handlers delegate to).
-        Files.writeString(outDir.resolve("dashboard.html"), Pages.dashboardHtml());
+        String dashboard = Pages.dashboardHtml(snapshot);
+        assertContains(dashboard, "<svg", "dashboard renders the flame graph inline");
+        assertContains(dashboard, "id=\"flame-box\"", "dashboard has the inline flame container");
+        assertContains(dashboard, "id=\"stacks\"", "dashboard has the thread-stacks card");
+        assertContains(dashboard, "id=\"kernel-body\"", "dashboard has the kernel panel");
+        assertContains(dashboard, "id=\"kpi-alloc\"", "dashboard has the KPI row");
+        Files.writeString(outDir.resolve("dashboard.html"), dashboard);
         Files.writeString(outDir.resolve("flame.html"), Pages.flamePage(snapshot));
         Files.writeString(outDir.resolve("flame.svg"),
                 FlameGraph.svg(snapshot.collapsedStacks(), FlameGraph.DEFAULT_WIDTH));

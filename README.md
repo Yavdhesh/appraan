@@ -65,16 +65,20 @@ TCP listener Appraan opens is its own web UI, bound to loopback.
 
 While Appraan runs, open **http://127.0.0.1:7676/** in a browser:
 
-- `/` — a single-page dashboard (self-contained: no external assets) with the
-  target's discovery summary, live GC counts and pauses, allocation rate,
-  CPU top leaf methods, per-core CPU, and the **Kernel** panel (below).
-  It polls every 1 s and shows a **LIVE / STALE** indicator with the
-  last-update time.
-- `/flame` — a server-rendered CPU **flame graph** (SVG; width ∝ sample
-  share, hover a frame for counts) built from the same JFR execution
-  samples, with the top-leaf table beside it. **Click a frame to zoom**
-  into it; "Reset zoom" restores the full graph.
-- `/kernel` — the dedicated **Kernel** page: kernel operations by
+- `/` — the single-page dashboard (self-contained: no external assets).
+  Everything for the observed PID is on this one page: a KPI row
+  (allocation rate, heap used/max, young/old GC counts, CPU), the
+  target's discovery summary, live GC counts and pauses (incl. G1
+  detail), allocation, CPU top leaf methods, per-core CPU, the top
+  thread stacks, the **flame graph inline** (click a frame to zoom,
+  "Reset zoom" restores it; refreshed in place every 15 s), and the
+  full **Kernel** panel (below). It polls every 1 s and shows a
+  **LIVE / STALE** badge with the last-update time.
+- `/flame` — a focused page for the same CPU **flame graph** (SVG;
+  width ∝ sample share, hover a frame for counts) built from the same
+  JFR execution samples, with the top-leaf table beside it.
+- `/kernel` — the dedicated **Kernel** page (the same content as the
+  dashboard's Kernel panel): kernel operations by
   category with latency + histograms, TCP connection summary and recent
   connections, off-CPU summary with wait reasons and top threads, from
   the appraanagent feed (Windows) — plus the Linux /proc process-I/O
