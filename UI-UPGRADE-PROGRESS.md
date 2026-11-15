@@ -61,7 +61,14 @@ INLINE (click-to-zoom + Reset), kernel panel INLINE. No navigation to
       (no browser in this VM) — same caveat as earlier milestones.
 - [x] **Docs** — STATUS.md new "UI UPGRADE" entry at the top; README
       "Web UI" section rewritten for the single-page dashboard.
-- [ ] **Pushed** — commit + push origin main; record SHA here.
+- [x] **Pushed** — commit **8d94fef** pushed to origin main
+      (747698f..8d94fef), 2026-11-15.
+
+## Status log
+
+- 2026-11-15: scoped (see above). Implementation next.
+- 2026-11-15: implemented, 169/169 checks green, proof run 5 done,
+  docs updated, pushed as 8d94fef. ALL STAGES COMPLETE.
 
 ## Hard constraints honoured
 
