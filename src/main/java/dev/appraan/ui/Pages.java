@@ -536,16 +536,18 @@ public final class Pages {
                 $('gc-pause-max').textContent = gc.pauses.maxMs + ' ms';
                 $('gc-since-young').textContent = gc.young.sinceLast;
                 $('gc-since-old').textContent = gc.old.sinceLast;
+                const g1na = summary.gcCollector === 'G1'
+                  ? 'n/a (no GC observed yet)' : 'n/a (non-G1 collector)';
                 $('gc-promotion').textContent = gc.g1.available
                   ? fmtBytes(gc.promotion.bytes) + ' over ' + gc.promotion.gcCount + ' young GCs'
-                  : 'n/a (non-G1 collector)';
+                  : g1na;
                 $('g1-split').textContent = gc.g1.available
                   ? fmtBytes(gc.g1.edenUsedBytes) + ' / ' + fmtBytes(gc.g1.survivorUsedBytes)
                     + ' / ' + fmtBytes(gc.g1.oldUsedBytes) + ' · ' + gc.g1.regions + ' regions'
-                  : 'n/a (non-G1 collector)';
+                  : g1na;
                 $('g1-humongous').textContent = gc.g1.available
                   ? gc.g1.humongous.regions + ' regions, ' + fmtBytes(gc.g1.humongous.usedBytes) + ' used'
-                  : 'n/a (non-G1 collector)';
+                  : g1na;
                 $('alloc-rate').textContent = fmtBytes(summary.allocation.rateBytesPerSec) + '/s';
                 $('alloc-total').textContent = fmtBytes(summary.allocation.totalBytes);
                 $('alloc-heap').textContent = fmtBytes(summary.allocation.heapUsedBytes);
